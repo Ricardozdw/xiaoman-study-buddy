@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>小满学习搭子演示</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 布局：顶部演示条 + 左栏（今天/资料）| 中间对话流 | 右侧按需工作台 */
+:root{--bg:#f4f2ee;--surface:#fff;--card:#fff;--raised:#f8f7f4;--t1:#1f1d1a;--t2:#5f5a52;--t3:#736d63;--line:#e8e4dc;--ctl:#8a8478;--accent:#3f6f68;--onacc:#fff;--soft:#e9f0ee;--softfg:#24433f;--ok:#3a6f5c;--okbg:#e5f4e4;--bad:#a5452f;--badbg:#fbebeb;--warnbg:#fbf1dc;--warn:#7a5310;--pp:#f6efe6;--hl:#fff3c4;--bar:#ebe7e0;--shadow:rgba(0,0,0,.12);--font:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#181a19;--surface:#1f2221;--card:#242827;--raised:#2a2e2d;--t1:#ecebe7;--t2:#b3aea5;--t3:#a29d94;--line:#363b3a;--ctl:#7c776f;--accent:#7fb3aa;--onacc:#0f1a18;--soft:#26403b;--softfg:#d3ebe6;--ok:#86c7a8;--okbg:#20382c;--bad:#ef9a85;--badbg:#3e2420;--warnbg:#3a2f18;--warn:#f0c878;--pp:#2e2a25;--hl:#5a4d16;--bar:#363b3a;--shadow:rgba(0,0,0,.5);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#181a19;--surface:#1f2221;--card:#242827;--raised:#2a2e2d;--t1:#ecebe7;--t2:#b3aea5;--t3:#a29d94;--line:#363b3a;--ctl:#7c776f;--accent:#7fb3aa;--onacc:#0f1a18;--soft:#26403b;--softfg:#d3ebe6;--ok:#86c7a8;--okbg:#20382c;--bad:#ef9a85;--badbg:#3e2420;--warnbg:#3a2f18;--warn:#f0c878;--pp:#2e2a25;--hl:#5a4d16;--bar:#363b3a;--shadow:rgba(0,0,0,.5);color-scheme:dark}
+html,body{height:100%}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:var(--font);display:flex;flex-direction:column;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.demobar{flex:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--warnbg);color:var(--warn);font-size:13px;border-bottom:1px solid var(--line)}
+.demobar b{font-weight:600}
+.dots{display:flex;gap:4px}
+.dots i{width:18px;height:5px;border-radius:3px;background:var(--bar)}
+.dots i.d{background:var(--warn)}
+.demobar .hint{flex:1;min-width:0}
+.demobar button{border:1px solid var(--warn);background:transparent;color:var(--warn);border-radius:8px;padding:5px 10px;font-size:13px;min-height:32px}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:240px minmax(0,1fr)}
+.app.wp{grid-template-columns:240px minmax(0,1fr) min(460px,40vw)}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:16px 14px;display:flex;flex-direction:column;font-size:14px;overflow:auto}
+.logo{font-weight:600;font-size:18px;color:var(--accent);margin:0 0 14px 4px}
+.rh{font-size:13px;color:var(--t2);margin:14px 4px 6px;display:flex;justify-content:space-between}
+.ri{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;line-height:1.45;width:100%;border:none;background:none;text-align:left;font-size:14px;min-height:44px;border-radius:10px}
+.ri:not(:disabled):hover{background:var(--raised)}
+.ri:disabled{cursor:default}
+.fold{display:block;width:100%;border:1px dashed var(--ctl);border-radius:12px;background:var(--raised);color:var(--t2);font-size:13px;padding:10px 12px;margin:0 0 14px;min-height:44px}
+.fold:disabled{cursor:default}
+.ri.on{background:var(--soft);border-radius:10px;color:var(--softfg)}
+.ri.done span:last-child{color:var(--t3);text-decoration:line-through}
+.ri .ft{font-size:12px;color:var(--onacc);background:var(--accent);border-radius:999px;padding:1px 7px;margin-left:4px}
+.cb{width:18px;height:18px;border:2px solid var(--ctl);border-radius:5px;flex:none;margin-top:2px;position:relative}
+.cb.d{background:var(--ok);border-color:var(--ok)}
+.cb.d:after{content:"";position:absolute;left:4px;top:0;width:4px;height:9px;border:solid var(--onacc);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.empty{font-size:13px;color:var(--t3);padding:6px}
+.rl{padding:7px 6px;color:var(--t1);display:flex;justify-content:space-between;gap:8px;border-radius:10px}
+.rl small{color:var(--t2);font-size:13px;white-space:nowrap}
+.rl.new{background:var(--soft);color:var(--softfg)}
+.rail .bot{margin-top:auto;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.jump{border:1.5px dashed var(--warn);background:var(--warnbg);color:var(--warn);border-radius:12px;padding:10px;font-size:14px;min-height:44px;text-align:left}
+.jump small{display:block;font-size:12px}
+.jump:disabled{opacity:.45;cursor:default}
+.jump.pulse{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px var(--warnbg)}}
+.chat{display:flex;flex-direction:column;min-width:0;min-height:0}
+.ch{height:58px;flex:none;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--surface)}
+.ch .nm{font-size:16px;font-weight:600}
+.ch .st{font-size:13px;color:var(--t2)}
+.ch .day{margin-left:auto;font-size:13px;color:var(--t2)}
+.stream{flex:1;min-height:0;overflow-y:auto;padding:18px 24px 6px;display:flex;flex-direction:column}
+.col{width:100%;max-width:720px;margin:auto auto 0}
+.msg{display:flex;gap:10px;margin:0 0 14px;align-items:flex-start;animation:in .25s ease-out}
+@keyframes in{from{transform:translateY(6px);opacity:.4}}
+.av{width:36px;height:36px;border-radius:50%;background:var(--pp);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+.bd{min-width:0;flex:1}
+.bub{font-size:15px;line-height:1.7;padding:6px 0 2px}
+.msg.u{justify-content:flex-end}
+.msg.u .bub{background:var(--soft);color:var(--softfg);border-radius:16px 16px 4px 16px;padding:9px 14px;max-width:75%}
+.att{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--card);font-size:14px}
+.att .ico{width:26px;height:32px;border-radius:5px;background:var(--raised);font-size:10px;color:var(--t2);display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px}
+.att small{display:block;font-size:13px;color:var(--t2)}
+.mc{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:14px 16px;margin-top:6px}
+.mc h4{margin:0 0 6px;font-size:16px;font-weight:600;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.mc h4 em{font-style:normal;font-weight:400;font-size:13px;color:var(--t2)}
+.mc ul{margin:4px 0 0;padding-left:20px;font-size:14px;line-height:1.75}
+.ai{display:inline-block;font-size:12px;padding:2px 7px;border-radius:6px;background:var(--raised);color:var(--t2)}
+.sim{display:inline-block;font-size:12px;padding:2px 7px;border-radius:6px;background:var(--warnbg);color:var(--warn);margin-left:6px;vertical-align:1px}
+.kp{display:inline-block;border-radius:999px;padding:5px 11px;font-size:13px;background:var(--soft);color:var(--softfg);margin:6px 6px 0 0}
+.btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{border:1px solid var(--ctl);border-radius:12px;padding:9px 16px;font-size:14px;background:var(--card);min-height:44px}
+.btn.p{background:var(--accent);border-color:var(--accent);color:var(--onacc)}
+.btn.g{border-color:transparent;color:var(--t2);background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.steps{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.steps span{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--raised);color:var(--t3)}
+.steps span.d{background:var(--soft);color:var(--softfg)}
+.steps span.c{background:var(--accent);color:var(--onacc)}
+.pbar{height:8px;border-radius:4px;background:var(--bar);overflow:hidden;margin-top:10px}
+.pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.cite{display:inline-block;border:none;background:var(--soft);color:var(--softfg);border-radius:6px;padding:1px 7px;font-size:13px;margin:0 2px;min-height:24px}
+.cite.off{background:var(--raised);color:var(--t3);text-decoration:line-through}
+.q{font-size:16px;line-height:1.6;margin:4px 0 8px;font-weight:500}
+.opt{display:flex;gap:10px;width:100%;text-align:left;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:15px;margin:8px 0 0;background:var(--card);min-height:44px}
+.opt em{font-style:normal;color:var(--t2);width:16px;flex:none}
+.opt.bad{border:2px solid var(--bad);background:var(--badbg)}
+.opt.good{border:2px solid var(--ok);background:var(--okbg)}
+.opt:disabled{cursor:default}
+.expl{background:var(--raised);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.7;margin-top:10px}
+.prog{display:flex;gap:5px;margin:2px 0 6px}
+.prog i{width:30px;height:5px;border-radius:3px;background:var(--bar)}
+.prog i.g{background:var(--ok)}.prog i.b{background:var(--bad)}
+.sug{border:1.5px solid var(--accent);border-radius:16px;background:var(--raised);padding:14px 16px;margin-top:6px}
+.sug .lb2{font-size:13px;color:var(--accent);margin-bottom:6px}
+.sug .chg{font-size:14px;line-height:1.7}
+.okline{font-size:13px;color:var(--ok);margin-top:8px}
+.okline button{border:none;background:none;color:var(--accent);padding:4px 6px;min-height:32px;text-decoration:underline}
+.daysep{text-align:center;font-size:13px;color:var(--t2);margin:6px 0 16px;display:flex;align-items:center;gap:12px}
+.daysep:before,.daysep:after{content:"";flex:1;height:1px;background:var(--line)}
+.compose{flex:none;padding:6px 24px 16px}
+.qr{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.qr button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 14px;font-size:14px;color:var(--t1);min-height:36px}
+.qr button.hot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.ibar{display:flex;align-items:center;gap:8px;border:1px solid var(--ctl);border-radius:16px;background:var(--card);padding:6px}
+.ibar .ic{width:40px;height:40px;border:none;border-radius:10px;background:var(--raised);font-size:18px;color:var(--t2);flex:none}
+.ibar .ic.hot{background:var(--accent);color:var(--onacc);animation:pulse 1.4s ease-in-out infinite}
+.ibar input{flex:1;min-width:0;border:none;background:transparent;font-size:15px;color:var(--t1);padding:8px 4px}
+.ibar input:focus{outline:none}
+.ibar .go{width:44px;height:40px;border:none;border-radius:10px;background:var(--accent);color:var(--onacc);font-size:16px;flex:none}
+.wpane{background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0;min-height:0}
+.wph{height:58px;flex:none;display:flex;align-items:center;gap:10px;padding:0 18px 0 22px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600}
+.wph button{margin-left:auto;border:none;background:none;color:var(--t2);font-size:20px;width:44px;height:44px}
+.wpb{padding:18px 22px;overflow-y:auto;flex:1;font-size:14px;line-height:1.75}
+.wpb h2{font-size:15px;margin:18px 0 4px}
+.wpb ul{padding-left:20px;margin:4px 0}
+.term{display:grid;grid-template-columns:96px 1fr;gap:6px 12px}
+.term b{font-weight:600}
+.page{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--card);margin-top:10px}
+.page .pn{font-size:12px;color:var(--t2);margin-bottom:4px}
+mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
+.mrow{display:grid;grid-template-columns:112px 1fr 44px;gap:10px;align-items:center;margin:10px 0;font-variant-numeric:tabular-nums}
+.mrow .tr{height:10px;border-radius:5px;background:var(--bar);overflow:hidden}
+.mrow .tr i{display:block;height:100%;background:var(--accent);transition:width .8s}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.mini div{background:var(--raised);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--t2)}
+.mini b{display:block;font-size:20px;color:var(--t1);font-weight:600;font-variant-numeric:tabular-nums}
+.up{color:var(--ok);font-weight:600}
+.spr{display:inline-block;line-height:0}
+@media (max-width:900px){
+ .app,.app.wp{grid-template-columns:minmax(0,1fr)}
+ .rail{display:none}
+ .wpane{position:fixed;inset:0;z-index:20;padding-top:env(safe-area-inset-top,0px)}
+ .stream,.compose{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+ .ch{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+ .mobjump{display:inline-block!important}
+}
+.mobjump{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* v3：目标拆解、强度、小满的 5 个时刻 */
+.welcome{display:flex;gap:16px;align-items:center;background:var(--pp);border-radius:18px;padding:16px 18px;margin:0 0 16px;animation:in .3s ease-out}
+.welcome b{display:block;font-size:18px;font-weight:600;margin-bottom:2px}
+.welcome span.tx{font-size:14px;color:var(--t2);line-height:1.6}
+.party{display:flex;gap:16px;align-items:center;border:1.5px solid var(--ok);background:var(--okbg);border-radius:18px;padding:16px 18px;margin:0 0 16px 46px;animation:in .3s ease-out}
+.party .tx>b{display:block;font-size:17px;font-weight:600;margin-bottom:4px}
+.party li b{color:var(--accent);margin-right:4px}
+.party .tx{font-size:14px;line-height:1.7;min-width:0}
+.party ul{margin:4px 0 0;padding-left:18px}
+.goal{border:1.5px solid var(--accent);border-radius:16px;background:var(--raised);padding:14px 16px;margin-top:6px}
+.goal .gh{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.goal .gh b{font-size:16px}
+.goal .gh small{display:block;font-size:13px;color:var(--accent)}
+.phase{display:grid;grid-template-columns:92px 1fr;gap:4px 12px;font-size:14px;line-height:1.6;margin:6px 0}
+.phase span:nth-child(odd){color:var(--t2)}
+.three{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.three span{font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.three b{color:var(--accent);font-weight:600;margin-right:4px}
+.src{display:inline-block;font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:0 5px;margin-right:6px;line-height:18px}
+.ri.done .src{color:var(--t3);border-color:var(--t3)}
+.lvl{display:none;margin:2px 4px 6px}
+.lvl.on{display:block}
+.lvl .seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--ctl);border-radius:10px;overflow:hidden}
+.lvl .seg button{border:none;background:var(--card);font-size:13px;padding:8px 0;min-height:40px;color:var(--t2)}
+.lvl .seg button+button{border-left:1px solid var(--line)}
+.lvl .seg button[aria-pressed="true"]{background:var(--accent);color:var(--onacc);font-weight:600}
+.lvl small{display:block;font-size:12px;color:var(--t2);margin-top:5px}
+.emptyx{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;font-size:13px;color:var(--t2);text-align:center;line-height:1.6}
+.react{display:inline-block;vertical-align:-4px;margin-right:6px}
+.jrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.jrow .jump{padding:8px;font-size:13px}
+.pick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pick button{text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;font-size:14px;min-height:44px}
+.pick button small{display:block;color:var(--t2);font-size:13px}
+.pick button[aria-pressed="true"]{border:2px solid var(--accent);background:var(--soft);color:var(--softfg)}
+.qz details{margin-top:6px;font-size:14px}
+.qz summary{cursor:pointer;color:var(--accent);min-height:32px;display:flex;align-items:center}
+.rv{border-top:1px solid var(--line);padding:8px 0;line-height:1.6}
+.rv b{display:block;font-weight:500}
+.rv span{color:var(--t2);font-size:13px}
+.hard{font-size:12px;color:var(--warn);background:var(--warnbg);border-radius:6px;padding:1px 6px}
+</style>
+
+<div class="demobar" role="status">
+  <b>演示 · 直接方案</b>
+  <span class="dots" id="dots"></span>
+  <span class="hint" id="hint"></span>
+  <button id="mobJump" class="mobjump" hidden>跳到明天</button>
+  <button id="restart">重新开始</button>
+</div>
+
+<div class="app" id="app">
+  <aside class="rail">
+    <div class="logo">慢慢</div>
+    <div class="rh"><span>今天 · 最多三件</span><span id="todayCount"></span></div>
+    <div class="lvl" id="lvl">
+      <div class="seg" role="group" aria-label="今天的强度">
+        <button type="button" data-l="light" aria-pressed="false">轻松</button>
+        <button type="button" data-l="normal" aria-pressed="true">正常</button>
+        <button type="button" data-l="sprint" aria-pressed="false">冲刺</button>
+      </div>
+      <small id="lvlNote">约 30 分钟 · 件数不变，每件的分量变</small>
+    </div>
+    <div id="today"></div>
+    <div class="rh"><span>我的资料 · PMP</span><span id="lecCount"></span></div>
+    <div id="lecs"></div>
+    <div class="bot">
+      <button class="jump" id="jump" disabled>跳到明天<small>演示用 · 把“今天”往后拨一天</small></button>
+      <div class="jrow"><button class="jump" id="jump3" disabled>跳过两天<small>演示中断后回来</small></button><button class="jump" id="jump9" disabled>跳过 8 天<small>很久没来</small></button></div>
+    </div>
+  </aside>
+
+  <main class="chat">
+    <div class="ch">
+      <span class="spr" id="headSpr" data-s="wave" data-z="2"></span>
+      <div><div class="nm">小满</div><div class="st" id="state">在线</div></div>
+      <div class="day" id="day"></div>
+    </div>
+    <div class="stream" id="stream"><div class="col" id="col"></div></div>
+    <div class="compose"><div class="col" style="margin:0 auto">
+      <div class="qr" id="qr"></div>
+      <form class="ibar" id="form">
+        <button type="button" class="ic" id="plus" aria-label="交资料">＋</button>
+        <button type="button" class="ic" id="at" aria-label="指定一讲">@</button>
+        <input id="inp" autocomplete="off" placeholder="跟小满说，或把资料交给它…">
+        <button class="go" aria-label="发送">↑</button>
+      </form>
+    </div></div>
+  </main>
+
+  <aside class="wpane" id="wpane" hidden>
+    <div class="wph"><span id="wpTitle"></span><button id="wpClose" aria-label="关闭工作台">×</button></div>
+    <div class="wpb" id="wpBody"></div>
+  </aside>
+</div>
+
+<script>
+// ---------- 小满像素形象 ----------
+const BASE=["..............g.......",".............yyy......","...........o.yyy......","..........obooooo.....","...ooooooobbbbbbbo....","..obbbbbbbbbbbebbbo...",".obbbbbbbbbbbbbbbbbo..",".obbbbbbbbbbbbbbbbno..",".obbbbbbbbbbbbllllo...",".obbbbbbbbbbbbbbbo....","..obbbbbbbbbbbbbo.....","..obboooooooobbo......","...ff........ff......."];
+const PC={o:"#4a3020",b:"#a8743f",l:"#d2a06a",e:"#1e1410",n:"#2a1a10",f:"#4a3020",y:"#f0a030",g:"#5a9a3a",m:"#8a8478",s:"#e8b020"};
+const MOD={idle:[],think:[[20,0,"m"],[21,0,"m"],[21,1,"m"],[20,2,"m"],[20,4,"m"]],cheer:[[14,5,"b"],[13,5,"e"],[15,5,"e"],[14,4,"e"],[1,2,"s"],[4,0,"s"],[20,3,"s"],[21,6,"s"]],wave:[[17,10,"o"],[18,9,"o"],[19,8,"o"],[19,7,"o"]]};
+function sprite(s,z){const g=BASE.map(r=>r.split(''));(MOD[s]||[]).forEach(([x,y,c])=>g[y][x]=c);let r='';g.forEach((row,y)=>row.forEach((ch,x)=>{if(PC[ch])r+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${PC[ch]}"/>`}));return `<svg width="${22*z}" height="${13*z}" viewBox="0 0 22 13" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`}
+function paintSprites(root=document){root.querySelectorAll('.spr:not([data-done])').forEach(el=>{el.innerHTML=sprite(el.dataset.s,+el.dataset.z||2);el.dataset.done=1})}
+const spr=(s,z)=>`<span class="spr" data-s="${s}" data-z="${z}"></span>`;
+
+// ---------- 演示资料（按页存的原文）----------
+const PAGES={
+ 12:"关键路径是项目进度网络图中<mark>工期最长的那条路径</mark>，它决定了项目的最短完成时间。关键路径上的活动一旦延误，整个项目就会延误。",
+ 13:"正推法：从第一个活动开始，最早开始时间（ES）加上工期，得到<mark>最早完成时间（EF = ES + 工期）</mark>；后续活动的 ES 取所有紧前活动 EF 的最大值。",
+ 14:"逆推法：从最后一个活动往前推，得到最晚开始（LS）和最晚完成（LF）。<mark>总浮动时间 = LS − ES</mark>（也等于 LF − EF）。总浮动时间为 0 的活动都在关键路径上。",
+ 18:"进度压缩有两种方法：赶工是增加资源来缩短工期，通常会增加成本；<mark>快速跟进是把原本顺序进行的活动改为并行</mark>，一般不增加成本，但会增加返工风险。",
+ 21:"三点估算（PERT）用乐观值 O、最可能值 M、悲观值 P 计算期望工期：<mark>tE = (O + 4M + P) / 6</mark>。"
+};
+const Q6=[
+ {q:"关键路径指的是？",o:["工期最长的那条路径","活动数量最多的路径","成本最高的路径","资源最紧张的路径"],a:0,p:12,l:6,e:"关键路径是工期最长的路径，决定项目最短完成时间。"},
+ {q:"活动 A 最早开始时间是第 2 天，工期 4 天，它的最早完成时间是？",o:["第 5 天","第 6 天","第 4 天","第 8 天"],a:1,p:13,l:6,e:"EF = ES + 工期 = 2 + 4 = 6。"},
+ {q:"总浮动时间怎么算？",o:["LS − ES","EF − ES","ES − LS","工期 − ES"],a:0,p:14,l:6,e:"总浮动时间 = LS − ES，也等于 LF − EF。"},
+ {q:"想缩短工期、又尽量不增加成本，优先用哪种方法？",o:["赶工","快速跟进","增加资源","删减范围"],a:1,p:18,l:6,e:"快速跟进把顺序活动改成并行，一般不加成本，但返工风险变大。"},
+ {q:"三点估算（PERT）的期望工期公式是？",o:["(O + 4M + P) / 6","(O + M + P) / 3","(O + 2M + P) / 4","(O + P) / 2"],a:0,p:21,l:6,e:"tE = (O + 4M + P) / 6，最可能值的权重是 4。"}
+];
+const Q5=[
+ {q:"WBS（工作分解结构）最底层的单元叫什么？",o:["工作包","活动","里程碑","可交付成果"],a:0,p:9,l:5,e:"WBS 最底层是工作包，再往下分解成活动是进度管理的事。"},
+ {q:"范围基准由哪三部分组成？",o:["范围说明书、WBS、WBS 词典","项目章程、WBS、需求文件","范围说明书、需求文件、进度计划","WBS、WBS 词典、成本基准"],a:0,p:11,l:5,e:"范围基准 = 范围说明书 + WBS + WBS 词典。"},
+ {q:"客户在验收会上正式签字接受可交付成果，这属于哪个过程？",o:["确认范围","控制质量","控制范围","收集需求"],a:0,p:15,l:5,e:"确认范围是正式验收；控制质量关注的是做得对不对。"},
+ {q:"团队私下给产品加了客户没要求的功能，最可能带来什么问题？",o:["镀金，增加风险且不被认可","范围蔓延，但能提升满意度","属于正常的质量改进","需要走变更流程后就没问题"],a:0,p:17,l:5,hard:true,e:"这叫镀金：团队主动加东西。和范围蔓延（未经控制的变更）不同，两者都不提倡。"}
+];
+const LV={light:{n:'轻松',min:15,learn:'第 7 讲只看要点 · 5 分钟',prac:2,pmin:5},normal:{n:'正常',min:30,learn:'第 7 讲完整学习文档 · 15 分钟',prac:3,pmin:10},sprint:{n:'冲刺',min:50,learn:'第 7 讲文档 + 术语自测 · 25 分钟',prac:4,pmin:20}};
+
+// ---------- 状态 ----------
+const HINTS=["",
+ "点快捷回复告诉小满你的目标，它拆好后在拆解卡上点“好”",
+ "今天的三件排好了：点 ＋（或左栏第一件）交第 6 讲课件，再点“打开全文”",
+ "问一个问题，点回答里的页码看原文；然后点“开始做题”",
+ "在对话里做 5 道题（脚本建议故意错 2 道）。前面带答案的对话已收起",
+ "跟着小满做第三件：复习第 5 讲术语",
+ "第一天收工了。点左栏底部的“跳到明天”；想看中断后回来，点“跳过两天”或“跳过 8 天”",
+ "回来了：先看小满的建议卡；也可以在左栏换强度或说“今天只有 15 分钟”；然后点“开始重做”",
+ "跟着小满做完今天剩下两件",
+ "演示完成：两天各三件都做完了。可以点“重新开始”再走一遍"];
+let S;
+const $=s=>document.querySelector(s);
+function reset(){S={step:1,day:1,level:'normal',tasks:[],wrong:[],has6:false,has7:false,m6:60,m5:72,fold:null,flags:{}};
+ $('#col').innerHTML='';closePane();setState('在线','wave');setDay();
+ jumpBtns(false);$('#lvl').classList.remove('on');setLevelUI();
+ renderToday();renderLecs();
+ raw(`<div class="welcome">${spr('wave',5)}<div><b>嗨，我是小满，你的学习搭子</b><span class="tx">告诉我你的目标，我把它拆成每天三件小事；你上完课把课件交给我，我整理、出题、记住你错在哪。</span></div></div>`);
+ xm('<div class="bub">你最近在学什么？目标是什么？</div>','wave');
+ qr([["备考 PMP，12 月 14 日考试",goal1,true],["跟一门网课",()=>{um('跟一门网课');xm('<div class="bub">演示里先用备考 PMP 这条走。<span class="sim">模拟</span></div>');qr([["备考 PMP，12 月 14 日考试",goal1,true]])}]]);
+ setStep(1);}
+const DATES={1:['11 月 3 日','周一'],2:['11 月 4 日','周二'],4:['11 月 6 日','周四'],10:['11 月 12 日','周三']};
+function setDay(){const d=DATES[S.day];$('#day').textContent=`${d[0]} · ${d[1]}`}
+function jumpBtns(on){['#jump','#jump3','#jump9'].forEach(id=>{$(id).disabled=!on});$('#jump').classList.toggle('pulse',on)}
+function setStep(n){S.step=n;$('#dots').innerHTML=Array.from({length:8},(_,i)=>`<i class="${i<n?'d':''}"></i>`).join('');
+ $('#hint').innerHTML=`<b>第 ${Math.min(n,8)} / 8 步</b> · ${HINTS[n]}`;$('#mobJump').hidden=n!==6;}
+function setState(t,s){$('#state').textContent=t;const h=$('#headSpr');h.dataset.s=s;h.removeAttribute('data-done');paintSprites();}
+function scrollDown(){const st=$('#stream');requestAnimationFrame(()=>st.scrollTop=st.scrollHeight);}
+function xm(html,s='idle'){const d=document.createElement('div');d.className='msg';d.innerHTML=`<div class="av">${spr(s,1.5)}</div><div class="bd">${html}</div>`;$('#col').appendChild(d);paintSprites(d);scrollDown();return d}
+function um(html){const d=document.createElement('div');d.className='msg u';d.innerHTML=`<div class="bub">${html}</div>`;$('#col').appendChild(d);scrollDown();return d}
+function raw(html){const d=document.createElement('div');d.innerHTML=html;$('#col').appendChild(d);paintSprites(d);scrollDown();return d}
+function qr(items){$('#qr').innerHTML='';items.forEach(([t,fn,hot])=>{const b=document.createElement('button');b.type='button';b.textContent=t;if(hot)b.classList.add('hot');b.onclick=()=>{qr([]);fn()};$('#qr').appendChild(b)})}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function typing(ms=700){setState('正在想…','think');const d=xm('<div class="bub" style="color:var(--t3)">…</div>','think');await wait(ms);d.remove();setState('在线','idle')}
+function once(key){if(S.flags[key])return false;S.flags[key]=1;return true}
+
+// 做题时把前面的对话（里面有答案）收起来，做完才能展开
+function fold(){const col=$('#col');const kids=[...col.children];if(!kids.length)return;
+ const box=document.createElement('div');box.hidden=true;kids.forEach(k=>box.appendChild(k));
+ const b=document.createElement('button');b.type='button';b.className='fold';b.disabled=true;
+ b.textContent='做题中：前面的对话先收起来了，里面有答案，做完题再看';
+ b.onclick=()=>{box.hidden=false;b.remove();S.fold=null};col.append(box,b);S.fold=b;}
+function releaseFold(){if(S.fold){S.fold.disabled=false;S.fold.textContent='展开前面的对话'}}
+
+// ---------- 左栏 ----------
+const SRC={learn:'学新的',prac:'练一练',fix:'补一补'};
+function taskText(t){const L=LV[S.level];
+ if(t.k==='learn7')return L.learn;if(t.k==='prac5')return `第 5 讲 ${L.prac} 道题${L.prac===4?'（含 1 道难题）':''} · ${L.pmin} 分钟`;return t.t}
+function renderToday(){const items=S.tasks,t=$('#today');$('#todayCount').textContent=items.length?`${items.filter(i=>i.d).length}/${items.length}`:'';
+ const first=items.findIndex(i=>!i.d);
+ t.innerHTML=items.length?items.map((i,k)=>`<button type="button" class="ri ${i.d?'done':''} ${k===first?'on':''}" data-k="${k}" ${i.d?'disabled':''}><span class="cb ${i.d?'d':''}"></span><span><span class="src">${SRC[i.s]}</span>${taskText(i)}${k===first?'<span class="ft">先做这件</span>':''}</span></button>`).join('')
+  :`<div class="emptyx">${spr('idle',3)}<span>${S.day>1?'先跟小满确认一下目标，<br>再排今天的事':'告诉小满你的目标，<br>它来拆成每天三件事'}</span></div>`;
+ paintSprites(t);t.querySelectorAll('.ri').forEach(b=>b.onclick=()=>startTask(+b.dataset.k));}
+function renderLecs(){const L=[['第 5 讲 · 范围管理',S.m5+'%']];if(S.has6)L.push(['第 6 讲 · 进度管理',S.m6+'%',S.day===1]);if(S.has7)L.push(['第 7 讲 · 成本管理','新',true]);
+ $('#lecCount').textContent=L.length+' 讲';$('#lecs').innerHTML=L.map(([n,m,nw])=>`<div class="rl ${nw?'new':''}"><span>${n}</span><small>${m}</small></div>`).join('');}
+function setLevelUI(){document.querySelectorAll('#lvl button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===S.level));$('#lvlNote').textContent=`约 ${LV[S.level].min} 分钟 · 件数不变，每件的分量变`}
+function setLevel(l,silent){const prev=S.level;S.level=l;setLevelUI();renderToday();
+ if(!silent){xm(`<div class="bub">好，今天换成“${LV[l].n}”，约 ${LV[l].min} 分钟。还是三件，每件的分量变了，左栏已经更新。</div>`)}return prev}
+document.querySelectorAll('#lvl button').forEach(b=>b.onclick=()=>{if(b.dataset.l!==S.level){um(`今天换成“${LV[b.dataset.l].n}”`);setLevel(b.dataset.l)}});
+
+// ---------- 工作台 ----------
+function openPane(title,html){$('#wpTitle').textContent=title;$('#wpBody').innerHTML=html;$('#wpane').hidden=false;$('#app').classList.add('wp');$('#wpBody').scrollTop=0}
+function closePane(){$('#wpane').hidden=true;$('#app').classList.remove('wp')}
+const DOC6=`<span class="ai">AI 整理，可以改</span>
+<h2>这一讲讲了什么</h2><ul><li>怎么用网络图找出关键路径，算出项目最短工期</li><li>正推 / 逆推，算出每个活动的浮动时间</li><li>工期不够时怎么压缩：赶工和快速跟进</li><li>怎么估工期：三点估算（PERT）</li></ul>
+<h2>知识点</h2><span class="kp">关键路径 · 第 12 页</span><span class="kp">正推法 · 第 13 页</span><span class="kp">逆推与浮动时间 · 第 14 页</span><span class="kp">进度压缩 · 第 18 页</span><span class="kp">三点估算 · 第 21 页</span>
+<h2>术语</h2><div class="term"><b>ES / EF</b><span>最早开始 / 最早完成</span><b>LS / LF</b><span>最晚开始 / 最晚完成</span><b>总浮动时间</b><span>不影响项目完工的前提下，活动最多能晚多久</span><b>赶工</b><span>加资源缩短工期，通常加成本</span><b>快速跟进</b><span>顺序活动改并行，返工风险大</span></div>`;
+const TERMS5=`<span class="ai">AI 整理，可以改</span><h2>第 5 讲 · 5 个术语</h2><div class="term"><b>WBS</b><span>把项目工作一层层拆开的树</span><b>工作包</b><span>WBS 最底层，能估算和分派的单元</span><b>范围基准</b><span>范围说明书 + WBS + WBS 词典</span><b>确认范围</b><span>客户正式验收可交付成果</span><b>镀金</b><span>团队主动加客户没要的东西</span></div><p style="color:var(--t2);font-size:13px">看完回到对话，点“看完了”。</p>`;
+const DOC7=`<span class="ai">AI 整理，可以改</span><h2>第 7 讲 · 成本管理</h2><ul><li>成本估算的方法：类比、参数、自下而上、三点</li><li>成本基准 = 各工作包成本 + 应急储备</li><li>挣值管理：PV、EV、AC 三个数看进度和成本</li></ul><h2>术语</h2><div class="term"><b>PV</b><span>计划价值：按计划此刻该完成多少钱的活</span><b>EV</b><span>挣值：实际完成的活值多少钱</span><b>AC</b><span>实际成本：实际花了多少钱</span></div>`;
+function openPage(p){openPane(`原文 · 第 6 讲 第 ${p} 页`,`<div class="page"><div class="pn">第 ${p} 页 · 从 PDF 按页抽出的文字</div>${PAGES[p]}</div><p style="color:var(--t2);font-size:13px;margin-top:12px">黄色是小满引用的那句。后端已核对：这句确实在第 ${p} 页。</p>`)}
+function openBoard(){openPane('看板 · 这周',`<div class="mini"><div><b>${S.day===10?'1 天':'2 天'}</b>这周学了</div><div><b>${S.flags.done2?6+S.wrong.length+LV[S.level].prac:5}</b>本周做题</div><div><b>${S.wrong.length} → 0</b>待重做错题</div></div>
+<h2>每一讲的掌握度</h2><div class="mrow"><span>第 5 讲 范围</span><span class="tr"><i style="width:${S.m5}%"></i></span><span>${S.m5}%</span></div>
+<div class="mrow"><span>第 6 讲 进度</span><span class="tr"><i id="m6" style="width:60%"></i></span><span class="up">${S.m6}%</span></div>
+<h2>目标进度</h2><p style="margin:0">PMP · 12 月 14 日 · 还剩 ${41-S.day+1} 天。已学到第 7 讲。${S.plan||'按计划走。'}</p>
+<p style="color:var(--t2);font-size:13px">掌握度 = 最近做题正确率 × 自评把握度，规则在后端。</p>`);
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{const e=$('#m6');if(e)e.style.width=S.m6+'%'}));}
+
+// ---------- 做题（通用）----------
+// 一组题只用一张卡：原地换题；答完看解析，点“下一题”；做完收成一行总结，可展开回看
+function runQuiz(items,opt){let i=0;const res=[],picks=[];
+ const d=xm(`<div class="mc qz"></div>`);const box=d.querySelector('.qz');
+ const ask=()=>{closePane();setState(opt.state||'在出题','idle');const Q=items[i];
+  const prog=`<div class="prog">${items.map((_,j)=>`<i class="${j<res.length?(res[j]?'g':'b'):''}"></i>`).join('')}</div>`;
+  box.innerHTML=`<h4>${opt.title} ${i+1} / ${items.length}<em>出自第 ${Q.l} 讲第 ${Q.p} 页</em>${Q.hard?'<span class="hard">难</span>':''}</h4>${prog}<div class="q">${Q.q}</div>${Q.o.map((o,j)=>`<button class="opt" data-j="${j}"><em>${'ABCD'[j]}</em><span>${o}</span></button>`).join('')}<div class="res"></div>`;
+  scrollDown();
+  box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const j=+b.dataset.j,right=j===Q.a;
+   box.querySelectorAll('.opt').forEach(x=>x.disabled=true);
+   b.classList.add(right?'good':'bad');if(!right)box.querySelector(`.opt[data-j="${Q.a}"]`).classList.add('good');
+   setState(right?'为你高兴':'陪着你','');$('#headSpr').dataset.s=right?'cheer':'idle';$('#headSpr').removeAttribute('data-done');paintSprites();
+   res.push(right);picks.push(j);
+   const last=i===items.length-1;
+   const r=box.querySelector('.res');
+   r.innerHTML=`<div class="expl">${spr(right?'cheer':'idle',1.2).replace('class="spr"','class="spr react"')}${right?'<b style="color:var(--ok)">答对了。</b>':'<b style="color:var(--bad)">这道没对上，正确答案是 '+'ABCD'[Q.a]+'。</b>'+(opt.redo?'没关系，这道放回“补一补”，过几天我换个问法再出。':'这类题常错，没关系。')}${Q.e}${Q.l===6?`<button class="cite" data-p="${Q.p}">第 ${Q.p} 页</button>`:''}</div><div class="btns"><button class="btn p next">${last?'看结果':'下一题'}</button></div>`;
+   paintSprites(r);const c=r.querySelector('.cite');if(c)c.onclick=()=>openPage(Q.p);scrollDown();
+   r.querySelector('.next').onclick=()=>{i++;if(i<items.length)ask();else finish();};});};
+ const finish=()=>{const n=res.filter(Boolean).length;
+  box.innerHTML=`<h4>${opt.name} · ${items.length} 道题<em>答对 ${n} 道</em></h4><div class="prog">${res.map(x=>`<i class="${x?'g':'b'}"></i>`).join('')}</div>
+<details><summary>回看题目和解析</summary>${items.map((Q,k)=>`<div class="rv"><b>${res[k]?'✓':'✗'} ${Q.q}</b><span>你选 ${'ABCD'[picks[k]]}，正确 ${'ABCD'[Q.a]}。${Q.e}</span></div>`).join('')}</details>`;
+  opt.done(res);};
+ ask();}
+
+// ---------- 第 1 步：定目标 → 拆解卡 ----------
+async function goal1(){um('备考 PMP，12 月 14 日考试');await typing(500);
+ xm('<div class="bub">好，离考试还有 41 天。再问两句：这门课一共几讲？你每天大概有多少时间？</div>');
+ qr([["13 讲，已经学到第 5 讲，每天 30 分钟左右",goal2,true]]);}
+async function goal2(){um('13 讲，已经学到第 5 讲，每天 30 分钟左右');await typing(900);
+ const d=xm(`<div class="bub">我按 41 天倒着排了一下，你看看：</div>
+<div class="goal"><div class="gh">${spr('cheer',2.5)}<div><small>小满的拆解 · 点了才生效</small><b>PMP · 12 月 14 日考试</b></div></div>
+<div class="phase"><span>第 1–4 周</span><span>学新讲：第 6–13 讲，每周 2 讲，留出复习时间</span><span>第 5 周</span><span>刷题：按章节混合练，错题回炉</span><span>第 6 周</span><span>冲刺：模拟题 + 全部错题再过一遍</span></div>
+<div style="font-size:14px;margin-top:8px">每天三件，各从一处来：</div>
+<div class="three"><span><b>学新的</b>按进度该学的那一讲</span><span><b>练一练</b>给学过的讲出题</span><span><b>补一补</b>错题和快忘的内容</span></div>
+<div style="font-size:13px;color:var(--t2);margin-top:8px">强度默认“正常”，约 30 分钟。每天可以换成“轻松”或“冲刺”，件数不变，每件的分量变。</div>
+<div class="btns"><button class="btn p" data-a="ok">好</button><button class="btn" data-a="edit">说说怎么改</button></div><div class="after"></div></div>`,'cheer');
+ const after=d.querySelector('.after'),btns=d.querySelectorAll('.goal .btn');
+ d.querySelector('[data-a=edit]').onclick=()=>{after.innerHTML='<div class="okline" style="color:var(--t2)">正式版这里能直接说“第 5 周也要学新讲”，小满按你的话重排。<span class="sim">模拟</span></div>'};
+ d.querySelector('[data-a=ok]').onclick=()=>{btns.forEach(b=>b.disabled=true);
+  S.tasks=[{k:'learn6',s:'learn',t:'交第 6 讲课件，看学习文档 · 15 分钟'},{k:'quiz6',s:'prac',t:'第 6 讲 5 道题 · 10 分钟'},{k:'terms5',s:'fix',t:'复习第 5 讲的 5 个术语 · 5 分钟'}];renderToday();
+  after.innerHTML='<div class="okline">✓ 拆好了，今天的三件在左栏 <button>撤销</button></div>';
+  after.querySelector('button').onclick=()=>{if(S.step>2)return;S.tasks=[];renderToday();btns.forEach(b=>b.disabled=false);after.innerHTML='<div class="okline" style="color:var(--t2)">已撤销，拆解没有生效。</div>';$('#plus').classList.remove('hot');setStep(1)};
+  setStep(2);$('#plus').classList.add('hot');
+  xm('<div class="bub">今天三件排在左边了。第一件：今天上的第 6 讲，把课件交给我（点 ＋）。</div>');};}
+
+// ---------- 今天的任务：小满逐件带着做 ----------
+function startTask(k){const t=S.tasks[k];if(!t||t.d)return;
+ const first=S.tasks.findIndex(x=>!x.d);
+ if(k!==first){xm('<div class="bub">先做标着“先做这件”的那件吧，做完我带你做下一件。</div>');return}
+ ({learn6:upload6,quiz6:startQuiz6,terms5:terms5,redo:redo,learn7:learn7,prac5:prac5})[t.k]();}
+function done(key,msg){const t=S.tasks.find(x=>x.k===key);if(t)t.d=true;renderToday();if(msg)xm(`<div class="bub">${msg}</div>`,'cheer');}
+async function nextTask(){const k=S.tasks.findIndex(t=>!t.d);await wait(500);
+ if(k<0){celebrate();return}
+ const t=S.tasks[k];
+ const say={quiz6:['第二件：给第 6 讲出 5 道题，看看掌握得怎么样。','开始做题'],terms5:['最后一件：复习第 5 讲的 5 个术语，5 分钟。昨天学的，趁还没忘过一遍。','开始复习'],learn7:[`下一件：上完第 7 讲，把课件交给我。今天强度“${LV[S.level].n}”，${LV[S.level].learn.split(' · ')[0]}就行。`,'交第 7 讲课件'],prac5:[`最后一件：练第 5 讲 ${LV[S.level].prac} 道题，“补一补”前几天学的。`,'开始练习']}[t.k];
+ const d=xm(`<div class="bub">${say[0]}</div><div class="btns"><button class="btn p" data-a="go">${say[1]}</button><button class="btn g" data-a="later">晚点再做</button></div>`);
+ d.querySelector('[data-a=go]').onclick=e=>{e.target.disabled=true;startTask(k)};
+ d.querySelector('[data-a=later]').onclick=e=>{e.target.disabled=true;xm('<div class="bub">好，想做了点左栏那件就行，我接着带你。</div>')};}
+
+// 第 2 步：交第 6 讲
+async function upload6(){if(!once('up6'))return;$('#plus').classList.remove('hot');
+ raw(`<div style="text-align:right;margin-bottom:6px"><span class="att"><span class="ico">PDF</span><span>第 6 讲 进度管理.pdf<small>32 页 · 2.1 MB</small></span></span></div>`);
+ um('这是今天上的第 6 讲');await typing(400);
+ const card=xm(`<div class="bub">收到，我在读。</div><div class="mc"><h4>第 6 讲 · 进度管理 <em class="pst">读取中…</em></h4><div class="steps"><span class="c s1">按页读文字</span><span class="s2">整理成学习文档</span></div><div class="pbar"><i class="pb"></i></div></div>`,'think');
+ setState('在读第 6 讲','think');
+ for(let i=1;i<=8;i++){await wait(150);card.querySelector('.pb').style.width=(i*6)+'%';card.querySelector('.pst').textContent=`读到第 ${i*4} 页`}
+ card.querySelector('.s1').className='d';card.querySelector('.d').textContent='✓ 读完 32 页';card.querySelector('.s2').className='c s2';card.querySelector('.pst').textContent='整理中…';
+ for(let i=9;i<=16;i++){await wait(120);card.querySelector('.pb').style.width=(i*6.25)+'%'}
+ card.querySelector('.s2').className='d';card.querySelectorAll('.d')[1].textContent='✓ 学习文档';card.querySelector('.pst').textContent='好了';
+ S.has6=true;renderLecs();await typing(300);
+ const d=xm(`<div class="bub">第 6 讲整理好了。这一讲的核心是<b>关键路径</b>，考试常考计算题。</div>
+<div class="mc"><h4>第 6 讲 · 进度管理 <span class="ai">AI 整理，可以改</span></h4><ul><li>关键路径：工期最长的路径，决定最短工期</li><li>正推算 ES/EF，逆推算 LS/LF，浮动时间 = LS − ES</li><li>压缩工期：赶工（加钱）和快速跟进（并行）</li></ul><span class="kp">5 个知识点</span><span class="kp">5 个术语</span><div class="btns"><button class="btn p">打开全文</button></div></div>`);
+ d.querySelector('.btn').onclick=async()=>{openPane('第 6 讲 · 进度管理 · 学习文档',DOC6);if(!once('doc6'))return;
+  done('learn6');await wait(300);setStep(3);
+  xm('<div class="bub">文档在右边，第一件勾上了。有不懂的直接问我；准备好了做第二件：5 道题。</div>','cheer');
+  qr([["关键路径怎么算？",ask,true],["开始做题",startQuiz6]]);};}
+async function ask(){um('关键路径怎么算？');await typing(800);
+ const d=xm(`<div class="bub">关键路径就是从开始到结束<b>工期最长的那条路径</b><button class="cite" data-p="12">第 12 页</button>，算法分三步：<br>1. 正推：每个活动的最早完成 = 最早开始 + 工期<button class="cite" data-p="13">第 13 页</button><br>2. 逆推：从最后往前算出最晚开始、最晚完成<br>3. 总浮动时间 = LS − ES，等于 0 的活动连起来就是关键路径<button class="cite" data-p="14">第 14 页</button></div>
+<div style="font-size:13px;color:var(--t2);margin-top:4px">出处已核对：引用的原句都在对应页里。</div>`);
+ d.querySelectorAll('.cite').forEach(b=>b.onclick=()=>openPage(+b.dataset.p));
+ qr([["开始做题",startQuiz6,true]]);}
+
+// 第 4 步：第 6 讲 5 道题
+async function startQuiz6(){if(!S.tasks[0]||!S.tasks[0].d||!once('quiz6'))return;qr([]);setStep(4);closePane();fold();um('开始做题');await typing(700);
+ xm('<div class="bub">按第 6 讲出了 5 道选择题，每道我都先按原文自己答了一遍，对不上的已经丢掉。</div>');
+ runQuiz(Q6,{title:'第',name:'第 6 讲',done:async res=>{releaseFold();
+  S.wrong=res.map((r,i)=>r?-1:i).filter(i=>i>=0);const right=res.filter(Boolean).length;
+  if(!S.wrong.length)S.wrong=[1];
+  done('quiz6');await typing(500);
+  xm(`<div class="bub">做完了：答对 <b>${right} / 5</b>。${right===5?'全对，很稳。明天我挑一道计算题让你再巩固一下。':'错的 '+S.wrong.length+' 道我记下了，明天放进“补一补”，不用今天补。'}</div>`,right>=4?'cheer':'idle');
+  setStep(5);nextTask();}});}
+
+// 第 5 步：补一补 第 5 讲术语
+async function terms5(){if(!once('terms5'))return;openPane('第 5 讲 · 术语复习',TERMS5);um('开始复习');await typing(400);
+ const d=xm('<div class="bub">术语在右边。读一遍，试着不看解释说出每个词的意思。看完点“看完了”，我帮你勾上。</div><div class="btns"><button class="btn p">看完了</button></div>');
+ d.querySelector('.btn').onclick=e=>{e.target.disabled=true;closePane();um('看完了');S.m5=76;renderLecs();done('terms5','好，第 5 讲的掌握度也涨了一点。');nextTask();};}
+
+// 收工（两天共用）
+async function celebrate(){await typing(500);setState('收工啦','cheer');
+ if(S.day===1){
+  raw(`<div class="party">${spr('cheer',5)}<div class="tx"><b>今天三件都做完了，收工</b>明天的三件我已经排好：<ul><li><b>补一补</b> 重做今天错的 ${S.wrong.length} 道题</li><li><b>学新的</b> 第 7 讲（上完课交给我）</li><li><b>练一练</b> 第 5 讲几道题，防止忘</li></ul></div></div>`);
+  jumpBtns(true);setStep(6);
+ }else{S.flags.done2=1;
+  const d=raw(`<div class="party">${spr('cheer',5)}<div class="tx"><b>${S.day===2?'第二天三件也做完了':'回来这天的三件也做完了'}</b>这周学了 ${S.day===10?1:2} 天。第 6 讲掌握度 60% → ${S.m6}%，第 7 讲明天整理好。<div class="btns"><button class="btn p">看看板</button></div></div></div>`);
+  d.querySelector('.btn').onclick=openBoard;setStep(9);}
+ qr([]);}
+
+// 第 6 步：跳到明天 / 跳过两天 / 跳过 8 天
+async function jump(gap){if(S.step!==6)return;jumpBtns(false);closePane();
+ S.day=1+gap;setDay();renderLecs();const [dt,wd]=DATES[S.day],left=42-S.day;
+ const label=gap===1?'第二天':`隔了 ${gap-1} 天`;
+ const W={1:['早，第二天',`离考试还有 ${left} 天，按计划走着呢。今天三件排在左边了，强度“正常”，约 30 分钟。`],
+  3:['两天没见，欢迎回来',`没做的不会堆到今天，今天还是最多三件。离考试还有 ${left} 天，来得及。`],
+  9:['好久不见，欢迎回来','先不急着排任务，问你一句。']}[gap];
+ raw(`<div class="daysep">${label} · ${dt} ${wd}</div><div class="welcome">${spr('wave',5)}<div><b>${W[0]}</b><span class="tx">${W[1]}</span></div></div>`);
+ setStep(7);
+ if(gap===9){S.tasks=[];renderToday();await typing(600);askGoal();return}
+ showTasks();await typing(600);setState('在线','wave');
+ if(gap===3)await returnCards();
+ firstTask();}
+function showTasks(){S.tasks=[{k:'redo',s:'fix',t:`重做之前错的 ${S.wrong.length} 道题 · 5 分钟`},{k:'learn7',s:'learn'},{k:'prac5',s:'prac'}];$('#lvl').classList.add('on');renderToday();}
+function firstTask(){const d=xm(`<div class="bub">先做第一件：上次第 6 讲错的 <b>${S.wrong.length} 道</b>，花 5 分钟重做。<br><span style="color:var(--t2);font-size:14px">时间紧可以跟我说，或者在左栏换个强度。</span></div><div class="btns"><button class="btn p">开始重做</button></div>`,'wave');
+ const b=d.querySelector('.btn');b.onclick=()=>{b.disabled=true;redo()};
+ qr(S.level==='light'?[]:[["今天只有 15 分钟",short]]);}
+// 一张建议卡：点了才改，可撤销
+function sugCard(text,apply,undo,noText){const d=xm(`<div class="sug"><div class="lb2">小满的建议 · 点了才会改</div><div class="chg">${text}</div><div class="btns"><button class="btn p" data-a="ok">好</button><button class="btn g" data-a="no">先不用</button></div><div class="after"></div></div>`);
+ const after=d.querySelector('.after'),bs=d.querySelectorAll('.sug .btn');
+ d.querySelector('[data-a=no]').onclick=()=>{bs.forEach(b=>b.disabled=true);after.innerHTML=`<div class="okline" style="color:var(--t2)">${noText}</div>`};
+ d.querySelector('[data-a=ok]').onclick=()=>{bs.forEach(b=>b.disabled=true);const okText=apply();
+  after.innerHTML=`<div class="okline">✓ ${okText} <button>撤销</button></div>`;
+  after.querySelector('button').onclick=()=>{after.innerHTML=`<div class="okline" style="color:var(--t2)">${undo()}</div>`}};return d}
+// 隔两天回来：只出一张卡，一次决定；选完才带第一件
+function returnCards(){return new Promise(res=>{
+ const d=xm(`<div class="sug"><div class="lb2">小满的建议 · 点了才会改</div><div class="chg">今天我这样安排，你看行不行：<br>· 先轻松一点，约 15 分钟，还是三件<br>· 落下的第 7 讲，从这周留的复习时间里补上，<b>考试计划不变</b></div><div class="btns"><button class="btn p" data-a="ok">就这样</button><button class="btn g" data-a="no">按原来的强度</button></div><div class="after"></div></div>`,'wave');
+ const after=d.querySelector('.after'),bs=d.querySelectorAll('.sug .btn');
+ const plan='落下的第 7 讲已从这周的复习时间里补上，考试计划不变。';
+ d.querySelector('[data-a=ok]').onclick=()=>{bs.forEach(b=>b.disabled=true);setLevel('light',true);S.plan=plan;
+  after.innerHTML='<div class="okline">✓ 今天“轻松”，第 7 讲补进这周 <button>撤销</button></div>';
+  after.querySelector('button').onclick=()=>{setLevel('normal',true);S.plan='';after.innerHTML='<div class="okline" style="color:var(--t2)">已撤销：强度回到“正常”，计划没动。</div>'};res();};
+ d.querySelector('[data-a=no]').onclick=()=>{bs.forEach(b=>b.disabled=true);S.plan=plan;
+  after.innerHTML='<div class="okline" style="color:var(--t2)">好，强度保持“正常”。第 7 讲照样补进这周，考试计划不变。</div>';res();};});}
+// 8 天没来：先问目标还算不算数
+function askGoal(){setState('在线','wave');
+ const d=xm(`<div class="bub">上次见是 11 月 3 日。目标还是 <b>12 月 14 日考 PMP</b> 吗？</div><div class="btns"><button class="btn p" data-a="same">照旧，帮我重排</button><button class="btn" data-a="date">考试日期变了</button><button class="btn g" data-a="rest">先休息一阵</button></div>`,'wave');
+ d.querySelector('[data-a=date]').onclick=()=>{um('考试日期变了');xm('<div class="bub">正式版这里让你改日期，我按新日期重新拆解，出一张新的拆解卡。<span class="sim">模拟</span></div>')};
+ d.querySelector('[data-a=rest]').onclick=()=>{um('先休息一阵');xm('<div class="bub">好，这阵子我不排任务，也不会催你。想回来时说一声，我从你停下的地方接着排。<span class="sim">演示里可以点“照旧”继续</span></div>')};
+ d.querySelector('[data-a=same]').onclick=async e=>{d.querySelectorAll('.btn').forEach(b=>b.disabled=true);um('照旧，帮我重排');await typing(700);rePlan();};}
+function rePlan(){const OPTS=[['sprint','接下来 5 天用“冲刺”档','每天约 50 分钟，落下的讲 5 天补回来'],['squeeze','把第 5 周的刷题压缩成 3 天','腾出时间学新讲，每天还是 30 分钟'],['skim','第 10–13 讲只看要点','学新讲更快，留更多时间刷题']];let pick=null;
+ const d=xm(`<div class="goal"><div class="gh">${spr('think',2.5)}<div><small>小满的重排 · 选一种，点了才生效</small><b>落下了 3 讲（第 7–9 讲）</b></div></div><div style="font-size:14px;line-height:1.6">计划里留的复习时间只够补 1 讲，剩下的需要你选一种补法：</div>
+<div class="pick">${OPTS.map(([k,a,b])=>`<button type="button" data-k="${k}" aria-pressed="false">${a}<small>${b}</small></button>`).join('')}</div>
+<div class="btns"><button class="btn p" data-a="ok" disabled>就这样排</button></div><div class="after"></div></div>`,'think');
+ const ok=d.querySelector('[data-a=ok]'),after=d.querySelector('.after');
+ d.querySelectorAll('.pick button').forEach(b=>b.onclick=()=>{pick=b.dataset.k;d.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));ok.disabled=false});
+ ok.onclick=async()=>{ok.disabled=true;d.querySelectorAll('.pick button').forEach(b=>b.disabled=true);const o=OPTS.find(x=>x[0]===pick);
+  S.plan=`已重排：${o[1]}。考试日期不变。`;showTasks();if(pick==='sprint')setLevel('sprint',true);
+  after.innerHTML=`<div class="okline">✓ 重排好了：${o[1]} <button>撤销</button></div>`;
+  after.querySelector('button').onclick=()=>{S.plan='';setLevel('normal',true);after.innerHTML='<div class="okline" style="color:var(--t2)">已撤销重排，计划回到原样。今天的三件不变。</div>'};
+  await typing(500);xm(`<div class="bub">排好了，今天三件在左边。${pick==='sprint'?'今天起用“冲刺”档。':''}</div>`);firstTask();};}
+async function short(){um('今天只有 15 分钟');await typing(600);
+ if(S.level==='light'){xm('<div class="bub">现在就是“轻松”，约 15 分钟，刚好。</div>');return}
+ const d=xm(`<div class="sug"><div class="lb2">小满的建议 · 点了才会改</div><div class="chg">今天换成“轻松”：第 7 讲只看要点，第 5 讲练 2 道题，加上重做错题，约 15 分钟。还是三件。</div><div class="btns"><button class="btn p" data-a="ok">好</button><button class="btn g" data-a="no">先不用</button></div><div class="after"></div></div>`);
+ const after=d.querySelector('.after'),bs=d.querySelectorAll('.sug .btn');
+ d.querySelector('[data-a=no]').onclick=()=>{bs.forEach(b=>b.disabled=true);after.innerHTML='<div class="okline" style="color:var(--t2)">好，保持“正常”。</div>'};
+ d.querySelector('[data-a=ok]').onclick=()=>{bs.forEach(b=>b.disabled=true);const prev=setLevel('light',true);
+  after.innerHTML='<div class="okline">✓ 已换成“轻松” <button>撤销</button></div>';
+  after.querySelector('button').onclick=()=>{setLevel(prev,true);after.innerHTML=`<div class="okline" style="color:var(--t2)">已撤销，换回“${LV[prev].n}”。</div>`};};}
+
+// 第 7–8 步：第二天三件
+function redo(){if(!once('redo'))return;qr([]);setStep(8);closePane();fold();
+ runQuiz(S.wrong.map(i=>Q6[i]),{title:'重做',name:'重做错题',redo:true,state:'在陪你重做',done:async res=>{releaseFold();await typing(500);
+  const n=res.filter(Boolean).length,miss=res.length-n;S.m6=miss?70:80;renderLecs();done('redo');
+  xm(`<div class="bub">${miss?`对了 ${n} 道。还有 ${miss} 道没对上，已经放回“补一补”，过几天换个问法再出。第一件照样勾上了，做了就算。`:'全对了，第一件勾上了。'}</div><div class="mc"><h4>第 6 讲 · 掌握度</h4><div class="mrow" style="margin:6px 0"><span>之前 60%</span><span class="tr"><i style="width:${S.m6}%"></i></span><span class="up">${S.m6}%</span></div></div>`,miss?'idle':'cheer');
+  nextTask();}});}
+async function learn7(){if(!once('learn7'))return;
+ raw(`<div style="text-align:right;margin-bottom:6px"><span class="att"><span class="ico">PDF</span><span>第 7 讲 成本管理.pdf<small>28 页 · 示例课件</small></span></span></div>`);
+ um('第 7 讲的课件');await typing(400);
+ const card=xm(`<div class="mc"><h4>第 7 讲 · 成本管理 <em class="st7">读取中…</em></h4><div class="pbar"><i class="pb7"></i></div></div>`,'think');
+ for(let i=1;i<=6;i++){await wait(140);card.querySelector('.pb7').style.width=(i*16.7)+'%'}
+ card.querySelector('.st7').textContent='好了';S.has7=true;renderLecs();await typing(300);
+ const light=S.level==='light';
+ const d=xm(`<div class="mc"><h4>第 7 讲 · 成本管理 <span class="ai">AI 整理，可以改</span></h4><ul><li>成本估算：类比、参数、自下而上、三点</li><li>成本基准 = 各工作包成本 + 应急储备</li><li>挣值管理：用 PV、EV、AC 看进度和成本</li></ul><div class="btns">${light?'':'<button class="btn" data-a="full">打开全文</button>'}<button class="btn p" data-a="ok">看完了</button></div></div>`);
+ if(!light)d.querySelector('[data-a=full]').onclick=()=>openPane('第 7 讲 · 成本管理 · 学习文档',DOC7+(S.level==='sprint'?'<h2>术语自测</h2><p>不看上面，说说 EV 和 AC 的区别。</p>':''));
+ d.querySelector('[data-a=ok]').onclick=e=>{e.target.disabled=true;closePane();um('看完了');done('learn7','第二件勾上了。');nextTask();};
+ if(light)xm('<div class="bub">今天“轻松”，看这三条要点就够了。</div>');}
+async function prac5(){if(!once('prac5'))return;closePane();fold();um('开始练习');await typing(500);
+ runQuiz(Q5.slice(0,LV[S.level].prac),{title:'第 5 讲 ·',name:'第 5 讲练习',done:async res=>{releaseFold();const r=res.filter(Boolean).length;S.m5=Math.min(90,S.m5+r*2);renderLecs();
+  done('prac5');xm(`<div class="bub">答对 ${r} / ${res.length}。${r===res.length?'':'错的我放进以后的“补一补”。'}</div>`,'cheer');nextTask();}});}
+
+// ---------- 自由输入、按钮 ----------
+$('#form').onsubmit=async e=>{e.preventDefault();const v=$('#inp').value.trim();if(!v)return;$('#inp').value='';
+ um(v.replace(/</g,'&lt;'));await typing(600);
+ xm(`<div class="bub">这是演示版，只预设了几个问题。正式版里由问答工作流回答（整讲全文 + 标页码）。<span class="sim">模拟</span><br>先点下面或消息里的按钮继续吧。</div>`);};
+$('#plus').onclick=()=>{const k=S.tasks.findIndex(t=>!t.d);const t=S.tasks[k];
+ if(t&&(t.k==='learn6'||t.k==='learn7')){startTask(k);return}
+ if(!S.tasks.length){xm('<div class="bub">先告诉我你的目标，我排好今天的事，再交课件。</div>');return}
+ xm('<div class="bub">演示里只在“学新的”那件交课件。正式版这里随时可以交。<span class="sim">模拟</span></div>')};
+$('#at').onclick=()=>{$('#inp').value='@第 6 讲 ';$('#inp').focus()};
+$('#jump').onclick=()=>jump(1);$('#mobJump').onclick=()=>jump(1);$('#jump3').onclick=()=>jump(3);$('#jump9').onclick=()=>jump(9);
+$('#wpClose').onclick=closePane;
+$('#restart').onclick=reset;
+reset();
+</script>
+
+</html>
