@@ -1819,3 +1819,8 @@ if __name__ == "__main__":
 
 from app.agent.schedules.api import router as schedules_router
 app.include_router(schedules_router)
+
+# 小满学习搭子：路由都在 app/study，这里只挂上。
+from app.study.install import install as install_study  # noqa: E402
+
+install_study(app)

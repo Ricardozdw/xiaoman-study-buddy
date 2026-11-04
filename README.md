@@ -22,7 +22,9 @@
 | --- | --- | --- |
 | `app/`、`tests/`、`scripts/`、`config/`、`intents/`、`static/` 等 | Personal-Agent 底座原有的后端代码和测试 | 底座本身尽量不改，新功能放各线自己的模块 |
 | `app/prompts/<名字>/vN.md` | 版本化提示词文件，每个 AI 能力一个 | 各能力所属的线 |
-| `web/`（地基搭好后出现） | React 前端：对话页骨架、卡片组件、各线自己的文件夹 | 骨架和组件共用，改动由 A 拍板 |
+| `web/` | React 前端：对话页骨架、卡片组件、各线自己的文件夹 | 骨架和组件共用，改动由 A 拍板 |
+| `app/study/` | 学习搭子的后端（五条线 + 共用表和假接口） | 各线只改自己的文件夹；`common/` 要改先找 A |
+| `docs/地基给各线.md` | 代码放哪、怎么接 AI、怎么测 | 地基写好后给五条线 |
 | `demo/` | 可点击 demo（单个 HTML，数据都是预设的） | A |
 | `docs/分工方案.md`、`docs/交接/` | 分工和每人的交接文档 | A |
 | `docs/xiaoman/` | PRD 和技术主文档的快照 | A |
@@ -54,6 +56,31 @@ python -m pytest -q
 ```
 
 更多见 [docs/personal-agent-README.md](docs/personal-agent-README.md)（底座原 README）。
+
+**地基（后端 + 对话页）**：不需要模型 key，也不需要 Supabase。在上面的虚拟环境里：
+
+```bash
+cp .env.example .env
+python scripts/ensure_local_auth.py
+```
+
+这条脚本只在 `AUTH_SECRET` 为空时，写进一串本机随机值，用来给网页会话签名。它不是模型密钥，也不会打印出来。`.env.example` 里 `XIAOMAN_MVP=1` 会藏起飞书、微信、写草稿、安全输入区和记忆卡这些两周用不到的入口。危机识别和出站护栏还在。
+
+两个终端分别跑：
+
+```bash
+uvicorn app.main:app --host 127.0.0.1 --port 8787
+```
+
+```bash
+cd web && npm install && npm run dev
+```
+
+浏览器打开 http://127.0.0.1:5173 。中间是对话，左边是今天三件，右边工作台可以打开。接口说明在 http://127.0.0.1:8787/docs 。
+
+前端构建和测试：`cd web && npm test && npm run build`。
+
+五条线从哪写起，见 [docs/地基给各线.md](docs/地基给各线.md)。
 
 ## 怎么协作
 

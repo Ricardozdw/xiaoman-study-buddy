@@ -1,0 +1,109 @@
+/* 颜色暂用仓库 demo 的一套。是不是沿用「慢慢」的调色板，等 A 定。 */
+:root {
+  color-scheme: light;
+  --bg: #f4f2ee;
+  --surface: #fff;
+  --card: #fff;
+  --t1: #1f1d1a;
+  --t2: #5c564e;
+  --line: #e8e4dc;
+  --accent: #1f6f64;
+  --onacc: #fff;
+  --soft: #e7f2ef;
+  --warn: #7a5310;
+  --warnbg: #fbf1dc;
+  --fs: 17px;
+  --aux: 13px;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: var(--fs);
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--t1);
+}
+:root[data-font="sm"] { --fs: 15px; }
+:root[data-font="md"] { --fs: 17px; }
+:root[data-font="lg"] { --fs: 20px; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --bg: #181a19;
+    --surface: #1f2221;
+    --card: #242827;
+    --t1: #f3f1ec;
+    --t2: #c4beb4;
+    --line: #363b3a;
+    --accent: #8fd0c4;
+    --onacc: #10211e;
+    --soft: #243632;
+    --warn: #f0c878;
+    --warnbg: #3a2f18;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #181a19;
+  --surface: #1f2221;
+  --card: #242827;
+  --t1: #f3f1ec;
+  --t2: #c4beb4;
+  --line: #363b3a;
+  --accent: #8fd0c4;
+  --onacc: #10211e;
+  --soft: #243632;
+  --warn: #f0c878;
+  --warnbg: #3a2f18;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { overflow-x: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { min-height: 44px; min-width: 44px; }
+.app { min-height: 100%; display: flex; flex-direction: column; }
+.top, .rail, .workbench, .composer { background: var(--surface); }
+.top { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.top p { margin: 0; }
+.grow { flex: 1; }
+.shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); }
+.shell:has(.workbench) { grid-template-columns: 260px minmax(0, 1fr) minmax(280px, 380px); }
+.rail, .workbench { padding: 16px; overflow: auto; border-right: 1px solid var(--line); }
+.workbench { border-right: 0; border-left: 1px solid var(--line); }
+.chat { min-width: 0; display: flex; flex-direction: column; }
+.stream { flex: 1; overflow: auto; padding: 16px 20px 8px; }
+.day { color: var(--t2); font-size: var(--aux); }
+.bubble { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
+.bubble p { margin: 4px 0; }
+.bubble.user { justify-content: flex-end; }
+.bubble.user p { background: var(--soft); border-radius: 14px; padding: 8px 12px; }
+.avatar { color: var(--accent); display: inline-flex; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 0 0 12px; }
+.card header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.card h3, .rail h2, .workbench h2 { margin: 0; font-size: 1.05rem; }
+.card ul { margin: 8px 0; padding-left: 1.2em; }
+.card.collapsed { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card.collapsed p { margin: 0; }
+.btns, .seg, .composer { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 8px 14px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--onacc); border-color: var(--accent); }
+.badge, .aux { font-size: var(--aux); color: var(--t2); }
+.badge { display: inline-block; background: var(--soft); color: var(--t2); border-radius: 8px; padding: 2px 8px; }
+.badge.sim { background: var(--warnbg); color: var(--warn); }
+select { min-height: 44px; }
+.tasks { list-style: none; padding: 0; margin: 8px 0 16px; }
+.task { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 8px; cursor: pointer; }
+.task:hover { background: var(--soft); }
+.box { width: 18px; height: 18px; border: 2px solid var(--t2); border-radius: 4px; flex: none; }
+.box.on { background: var(--accent); border-color: var(--accent); }
+.composer { border-top: 1px solid var(--line); padding: 10px 12px; }
+.composer input { flex: 1; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--bg); }
+.page { white-space: pre-wrap; font: inherit; }
+.line-placeholder { margin: 8px 0; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 10px; color: var(--t2); font-size: var(--aux); }
+.lines { margin-top: 16px; }
+@media (max-width: 800px) {
+  .shell, .shell:has(.workbench) { grid-template-columns: 1fr; }
+  .rail { display: none; }
+  .shell.rail-open .rail { display: block; position: fixed; z-index: 4; inset: 58px auto 0 0; width: min(300px, 100%); }
+  .workbench { position: fixed; z-index: 5; inset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

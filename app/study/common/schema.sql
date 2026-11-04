@@ -1,0 +1,21 @@
+-- 学习表的行级权限意图（还没在 Supabase 上执行）。
+--
+-- 本地地基用 SQLite，不跑这个文件。
+-- 登录用的是底座网页会话，不是 Supabase Auth。
+-- 因此策略对齐底座：用会话变量 app.user_id，而不是 auth.uid()。
+-- 底座的 RLS 迁移目前只覆盖它自己的私有表。学习表还没登记进去。
+-- 要不要并进那次迁移，由 A 决定。登记进去会改变底座的安全迁移范围。
+--
+-- kb_documents 暂且单独存在。若 A 决定并进 files，删掉这张表，
+-- 把 status 留在 files.parse_status，资料页仍在 material_pages。
+
+-- 示例（goals；其余学习表同样：enable RLS，仅 user_id 等于当前会话）：
+-- ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY goals_owner ON goals
+--   USING (user_id = NULLIF(current_setting('app.user_id', true), ''))
+--   WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), ''));
+--
+-- 需要同样策略的表：
+-- goals, courses, chapters, files, kb_documents, material_pages, notes,
+-- knowledge_points, questions, attempts, plan_days, plan_tasks, agent_actions,
+-- messages, events, llm_calls, bad_cases, user_settings
