@@ -9,7 +9,7 @@
 - 后端：开源项目 Personal-Agent 为底座（Python 3.12 + FastAPI + LangGraph，MIT），数据库和文件存储用 Supabase。不用 Dify。
 - AI 能力：每个能力 = 一个版本化提示词文件 `app/prompts/<名字>/vN.md` + 一个后端函数，经底座模型网关 `app/gateway/` 调用；模型一主一备。
 - 资料：直接方案，不用知识库。后端按页抽 PDF 文字，整讲全文（带页码）交给模型；回答标【第 N 页】，后端核对原句。
-- 前端：React + TypeScript（放 `web/`，待建），只调后端 `/api` 接口，不直接调模型。
+- 前端：React + TypeScript（`web/`，地基已有对话壳），只调后端 `/api` 接口，不直接调模型。
 
 ## 产品规则（任何改动都不能违反）
 1. 每天最多三件，各来自“学新的 / 练一练 / 补一补”；想多学加强度，不加件数。

@@ -9,6 +9,9 @@ CRAWL_TOOLS = frozenset({"web_fetch", "web_search", "fetch_feed", "get_hn", "sea
 
 
 def _source(adapter, user_id, **params):
+    from app.study.mvp import mvp_enabled
+    if mvp_enabled():
+        return {"disabled": True, "code": "mvp_disabled", "data": {"items": [], "status": "disabled"}}
     return {"trust": "untrusted_source_data", "instruction": SOURCE_RULE,
             "data": crawl_router.route(adapter, user_id=user_id, **params)}
 

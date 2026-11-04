@@ -13,6 +13,9 @@ from app.tools.crawl import CRAWL_TOOLS, SOURCE_RULE
 
 
 def source_context(message, state):
+    from app.study.mvp import mvp_enabled
+    if mvp_enabled():
+        return ""
     if not llm_gateway.has_llm(llm_gateway.route("tool_selection")):
         return ""
     catalog = [x for x in tool_registry.list_tools() if x["name"] in CRAWL_TOOLS]

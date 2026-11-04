@@ -1,0 +1,20 @@
+-- 学习表的行级权限意图（还没在 Supabase 上执行）。
+--
+-- A 已定（2026-11-04）：
+-- 1. files、kb_documents、material_pages 三张表分开，不合并。
+-- 2. 学习表不登记进底座的 Postgres RLS 迁移。
+--
+-- 本地地基用 SQLite，不跑这个文件。
+-- 登录用的是底座网页会话，不是 Supabase Auth。
+-- 因此若以后单独做权限，用会话变量 app.user_id，而不是 auth.uid()。
+
+-- 示例（goals；其余学习表同样：enable RLS，仅 user_id 等于当前会话）：
+-- ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY goals_owner ON goals
+--   USING (user_id = NULLIF(current_setting('app.user_id', true), ''))
+--   WITH CHECK (user_id = NULLIF(current_setting('app.user_id', true), ''));
+--
+-- 需要同样策略的表：
+-- goals, courses, chapters, files, kb_documents, material_pages, notes,
+-- knowledge_points, questions, attempts, plan_days, plan_tasks, agent_actions,
+-- messages, events, llm_calls, bad_cases, user_settings

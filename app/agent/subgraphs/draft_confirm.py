@@ -53,6 +53,13 @@ def node_draft(state: AgentState) -> dict[str, Any]:
             "error": "draft:empty_request",
             "messages": [{"role": "assistant", "content": "想让我写什么？说一下用途和大概内容，比如「帮我写一封请假邮件」。"}],
         }
+    from app.study.mvp import mvp_enabled
+    if mvp_enabled():
+        return {
+            "profile": profile,
+            "error": "mvp_disabled",
+            "messages": [{"role": "assistant", "content": "两周里先不写草稿。"}],
+        }
 
     def observe(ctx) -> dict[str, Any]:
         memory = format_memory_context(uid, query=request[:200], limit=6) if uid else ""
