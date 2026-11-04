@@ -400,6 +400,9 @@ def invoke_tool(name: str, args: dict, ctx: Optional[dict] = None):
                 raise ToolError("unknown_tool", "这个操作暂不支持")
             if spec.status == "not_connected":
                 raise ToolError("not_connected", "暂不支持这项操作，相关服务尚未连接，未执行任何操作。")
+            from app.study.mvp import MVP_DISABLED_TOOLS, mvp_enabled
+            if mvp_enabled() and name in MVP_DISABLED_TOOLS:
+                raise ToolError("mvp_disabled", "两周 MVP 不用网页抓取和写草稿。")
             identity_params = spec.identity_params
             private = bool(identity_params) or spec.risk_level != "read" or name == "memory_get"
             if private and (not has_identity or trusted_uid is None):

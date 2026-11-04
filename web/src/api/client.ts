@@ -29,7 +29,7 @@ export async function ensureSession(): Promise<boolean> {
   }
 }
 
-export async function readStream(path: string, body: unknown): Promise<string> {
+export async function readStream(path: string, body: unknown, onDelta?: (text: string) => void): Promise<string> {
   const response = await fetch(path, {
     method: "POST",
     credentials: "include",
@@ -54,6 +54,7 @@ export async function readStream(path: string, body: unknown): Promise<string> {
       if (data === "[DONE]") return text;
       const parsed = JSON.parse(data) as { delta?: string };
       text += parsed.delta || "";
+      onDelta?.(text);
     }
   }
   return text;

@@ -70,7 +70,7 @@ class StudyFile(Base):
 
 
 class KbDocument(Base):
-    """资料处理记录。暂不并进 files。见 docs/地基给各线.md。"""
+    """资料处理记录。A 已定：不并进 files，资料页仍在 material_pages。"""
 
     __tablename__ = "kb_documents"
 

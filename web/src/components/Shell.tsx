@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ensureSession, readStream } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
-import type { Dashboard, Intensity, NoteItem, PlanToday } from "../api/types";
+import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
 import { DashboardLine } from "../lines/dashboard/Placeholder";
 import { MaterialsLine } from "../lines/materials/Placeholder";
 import { PlanLine } from "../lines/plan/Placeholder";
@@ -39,6 +39,7 @@ export function Shell() {
   const [theme, setTheme] = useState<Theme>("system");
   const [font, setFont] = useState<FontSize>("md");
   const [busy, setBusy] = useState(false);
+  const [permissions, setPermissions] = useState<Permissions | null>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -49,14 +50,15 @@ export function Shell() {
     let cancelled = false;
     (async () => {
       const session = await ensureSession();
-      const [planRes, noteRes, boardRes, pageRes] = await Promise.all([
+      const [planRes, noteRes, boardRes, pageRes, permRes] = await Promise.all([
         api<PlanToday>("/api/plan/today"),
         api<{ items: NoteItem[] }>("/api/notes"),
         api<Dashboard>("/api/dashboard?range=week"),
         api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${lectureId}/pages`),
+        api<Permissions>("/api/me/permissions"),
       ]);
       if (cancelled) return;
-      const fromApi = session && [planRes, noteRes, boardRes, pageRes].every((item) => item.source === "api");
+      const fromApi = session && [planRes, noteRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
       setSource(fromApi ? "api" : "mock");
       setPlan(planRes.envelope.data);
       const first = noteRes.envelope.data.items?.[0];
@@ -65,6 +67,7 @@ export function Shell() {
         if (!cancelled) setNote(detail.envelope.data.content ? detail.envelope.data : { ...detail.envelope.data, content: first.content });
       }
       setBoard(boardRes.envelope.data);
+      setPermissions(permRes.envelope.data);
       const pages = pageRes.envelope.data.pages || [];
       if (pages.length) setPageText(pages.map((item) => `【第 ${item.page} 页】${item.text}`).join("\n\n"));
     })();
@@ -74,9 +77,19 @@ export function Shell() {
   }, [lectureId]);
 
   async function changeIntensity(intensity: Intensity) {
+    const total = intensity === "light" ? 15 : intensity === "sprint" ? 50 : 30;
     const result = await api<PlanToday>("/api/plan/today", { method: "PATCH", body: JSON.stringify({ intensity }) });
     if (result.source === "api") setPlan(result.envelope.data);
-    else setPlan({ ...plan, intensity, intensity_label: INTENSITY.find((item) => item.id === intensity)?.label || intensity, minutes: intensity === "light" ? 15 : intensity === "sprint" ? 50 : 30 });
+    else {
+      const share = Math.floor(total / Math.max(plan.tasks.length, 1));
+      setPlan({
+        ...plan,
+        intensity,
+        intensity_label: INTENSITY.find((item) => item.id === intensity)?.label || intensity,
+        minutes: total,
+        tasks: plan.tasks.map((task) => ({ ...task, minutes: share })),
+      });
+    }
   }
 
   async function toggleTask(id: string, status: "todo" | "done") {
@@ -93,13 +106,18 @@ export function Shell() {
     const text = draft.trim();
     if (!text || busy) return;
     setDraft("");
-    setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "user", text }]);
+    const replyId = crypto.randomUUID();
+    setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "user", text }, { id: replyId, role: "xiaoman", text: "" }]);
     setBusy(true);
     try {
-      const reply = await readStream("/api/chat/stream", { message: text, lecture_id: lectureId });
-      setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "xiaoman", text: reply || "（模拟）我在。" }]);
+      const reply = await readStream("/api/chat/stream", { message: text, lecture_id: lectureId }, (full) => {
+        setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: full } : item)));
+      });
+      if (!reply) {
+        setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）我在。" } : item)));
+      }
     } catch {
-      setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "xiaoman", text: "（模拟）后端这会儿没接上，我先用本地的同一形状回你。" }]);
+      setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）后端这会儿没接上，我先用本地的同一形状回你。" } : item)));
       setSource("mock");
     } finally {
       setBusy(false);
@@ -164,6 +182,7 @@ export function Shell() {
                   <span className={task.status === "done" ? "box on" : "box"} aria-hidden="true" />
                   <span>
                     <b>{task.kind_label}</b> {task.title}
+                    {task.minutes ? <span className="aux"> 约 {task.minutes} 分钟</span> : null}
                   </span>
                 </button>
               </li>
@@ -183,6 +202,27 @@ export function Shell() {
           <button type="button" className="btn" onClick={() => setTab("note")}>
             打开学习文档
           </button>
+          {permissions && (
+            <section>
+              <h2>授权</h2>
+              <p className="aux">{permissions.chosen ? "已选过" : permissions.note}</p>
+              {permissions.switches.map((item) => (
+                <label key={item.key} className="task">
+                  <input
+                    type="checkbox"
+                    checked={item.value === true}
+                    onChange={() => {
+                      const next = Object.fromEntries(permissions.switches.map((row) => [row.key, row.key === item.key ? row.value !== true : row.value === true]));
+                      void api<Permissions>("/api/me/permissions", { method: "PATCH", body: JSON.stringify({ permissions: next }) }).then((result) => {
+                        setPermissions(result.envelope.data);
+                      });
+                    }}
+                  />
+                  <span>{item.label}</span>
+                </label>
+              ))}
+            </section>
+          )}
         </aside>
         <main className="chat">
           <div className="stream">

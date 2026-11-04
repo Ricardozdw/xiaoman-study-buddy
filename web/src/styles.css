@@ -1,17 +1,17 @@
-/* 颜色暂用仓库 demo 的一套。是不是沿用「慢慢」的调色板，等 A 定。 */
+/* 临时配色：灰底加一个蓝。视觉以后由 A 统一，不是最终方案。 */
 :root {
   color-scheme: light;
-  --bg: #f4f2ee;
-  --surface: #fff;
-  --card: #fff;
-  --t1: #1f1d1a;
-  --t2: #5c564e;
-  --line: #e8e4dc;
-  --accent: #1f6f64;
-  --onacc: #fff;
-  --soft: #e7f2ef;
-  --warn: #7a5310;
-  --warnbg: #fbf1dc;
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --t1: #1a1a1a;
+  --t2: #52525b;
+  --line: #e4e4e7;
+  --accent: #1d4ed8;
+  --onacc: #ffffff;
+  --soft: #eff6ff;
+  --warn: #92400e;
+  --warnbg: #fef3c7;
   --fs: 17px;
   --aux: 13px;
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
@@ -26,32 +26,32 @@
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     color-scheme: dark;
-    --bg: #181a19;
-    --surface: #1f2221;
-    --card: #242827;
-    --t1: #f3f1ec;
-    --t2: #c4beb4;
-    --line: #363b3a;
-    --accent: #8fd0c4;
-    --onacc: #10211e;
-    --soft: #243632;
-    --warn: #f0c878;
-    --warnbg: #3a2f18;
+    --bg: #111113;
+    --surface: #1c1c1f;
+    --card: #232327;
+    --t1: #f4f4f5;
+    --t2: #a1a1aa;
+    --line: #3f3f46;
+    --accent: #93c5fd;
+    --onacc: #0b1220;
+    --soft: #1e293b;
+    --warn: #fcd34d;
+    --warnbg: #422006;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #181a19;
-  --surface: #1f2221;
-  --card: #242827;
-  --t1: #f3f1ec;
-  --t2: #c4beb4;
-  --line: #363b3a;
-  --accent: #8fd0c4;
-  --onacc: #10211e;
-  --soft: #243632;
-  --warn: #f0c878;
-  --warnbg: #3a2f18;
+  --bg: #111113;
+  --surface: #1c1c1f;
+  --card: #232327;
+  --t1: #f4f4f5;
+  --t2: #a1a1aa;
+  --line: #3f3f46;
+  --accent: #93c5fd;
+  --onacc: #0b1220;
+  --soft: #1e293b;
+  --warn: #fcd34d;
+  --warnbg: #422006;
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -89,7 +89,7 @@ button { min-height: 44px; min-width: 44px; }
 .badge.sim { background: var(--warnbg); color: var(--warn); }
 select { min-height: 44px; }
 .tasks { list-style: none; padding: 0; margin: 8px 0 16px; }
-.task { width: 100%; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 8px; cursor: pointer; }
+.task { width: 100%; min-height: 44px; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: transparent; border-radius: 10px; padding: 8px; cursor: pointer; }
 .task:hover { background: var(--soft); }
 .box { width: 18px; height: 18px; border: 2px solid var(--t2); border-radius: 4px; flex: none; }
 .box.on { background: var(--accent); border-color: var(--accent); }

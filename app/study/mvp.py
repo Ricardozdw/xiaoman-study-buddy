@@ -11,6 +11,16 @@ import os
 
 from starlette.responses import JSONResponse
 
+# 网页抓取和写草稿。开关打开时，工具直接返回停用，不只是藏网页入口。
+MVP_DISABLED_TOOLS = frozenset({
+    "web_fetch",
+    "web_search",
+    "fetch_feed",
+    "get_hn",
+    "search_social",
+    "draft_text",
+})
+
 # 前缀匹配。对话、会话、反馈、学习接口不在这里。
 _BLOCKED_PREFIXES = (
     "/api/draft",

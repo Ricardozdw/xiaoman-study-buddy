@@ -1,13 +1,12 @@
 -- 学习表的行级权限意图（还没在 Supabase 上执行）。
 --
+-- A 已定（2026-11-04）：
+-- 1. files、kb_documents、material_pages 三张表分开，不合并。
+-- 2. 学习表不登记进底座的 Postgres RLS 迁移。
+--
 -- 本地地基用 SQLite，不跑这个文件。
 -- 登录用的是底座网页会话，不是 Supabase Auth。
--- 因此策略对齐底座：用会话变量 app.user_id，而不是 auth.uid()。
--- 底座的 RLS 迁移目前只覆盖它自己的私有表。学习表还没登记进去。
--- 要不要并进那次迁移，由 A 决定。登记进去会改变底座的安全迁移范围。
---
--- kb_documents 暂且单独存在。若 A 决定并进 files，删掉这张表，
--- 把 status 留在 files.parse_status，资料页仍在 material_pages。
+-- 因此若以后单独做权限，用会话变量 app.user_id，而不是 auth.uid()。
 
 -- 示例（goals；其余学习表同样：enable RLS，仅 user_id 等于当前会话）：
 -- ALTER TABLE goals ENABLE ROW LEVEL SECURITY;

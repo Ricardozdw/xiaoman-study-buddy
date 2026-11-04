@@ -69,7 +69,10 @@ def offline_draft(request: str, profile: dict[str, Any], feedback: Optional[list
       timeout=90)
 def draft_text(request: str, profile: dict, memory: str = "", feedback: Optional[list[str]] = None) -> dict:
     from app.gateway.llm_gateway import OutputSchemaError, chat_json, has_llm
+    from app.study.mvp import mvp_enabled
 
+    if mvp_enabled():
+        return {"disabled": True, "code": "mvp_disabled", "kind": "other", "title": "", "body": ""}
     request = str(request or "").strip()
     profile = dict(profile or {})
     if not has_llm():

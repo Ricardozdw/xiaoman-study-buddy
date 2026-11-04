@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 REQUIRED_PATHS = [
     "/api/files/upload-url",
     "/api/files/{file_id}/complete",
@@ -45,6 +49,8 @@ def test_plan_today_has_three_kinds(client, auth):
     assert done.json()["data"]["status"] == "done"
     light = client.patch("/api/plan/today", json={"intensity": "light"}, headers=auth("study-plan"))
     assert light.json()["data"]["intensity"] == "light"
+    assert light.json()["data"]["minutes"] == 15
+    assert sum(task["minutes"] for task in light.json()["data"]["tasks"]) == 15
     assert light.json()["data"]["tasks"][0]["status"] == "done"
     assert len(light.json()["data"]["tasks"]) == 3
 
@@ -116,8 +122,11 @@ def test_goal_dashboard_and_permissions(client, auth):
     assert board["lectures"]
     perms = client.get("/api/me/permissions", headers=headers).json()["data"]
     assert perms["chosen"] is False
-    chosen = client.patch("/api/me/permissions", json={"permissions": {"allow_plan_suggestions": True}}, headers=headers)
+    assert [item["key"] for item in perms["switches"]] == ["auto_adjust_today", "use_study_history", "more_later"]
+    assert all(item["value"] is None for item in perms["switches"])
+    chosen = client.patch("/api/me/permissions", json={"permissions": {"auto_adjust_today": True}}, headers=headers)
     assert chosen.json()["data"]["chosen"] is True
+    assert chosen.json()["data"]["permissions"]["auto_adjust_today"] is True
 
 
 def test_chat_stream_is_sse_and_base_chat_remains(client, auth):
@@ -126,8 +135,12 @@ def test_chat_stream_is_sse_and_base_chat_remains(client, auth):
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/event-stream")
         body = "".join(response.iter_text())
-    assert "data:" in body and "[DONE]" in body
-    assert "模拟" in body
+    assert body.count("data:") >= 3 and "[DONE]" in body
+    pieces = []
+    for line in body.splitlines():
+        if line.startswith("data:") and "[DONE]" not in line:
+            pieces.append(json.loads(line[5:].strip()).get("delta") or "")
+    assert "模拟" in "".join(pieces)
 
 
 def test_example_capability_records_usage_and_bad_case(client, auth, monkeypatch):
@@ -169,6 +182,24 @@ def test_mvp_flag_hides_unused_base_surfaces(client, auth, monkeypatch):
     # 关掉开关后，密钥接口回到底座自己的行为（测试环境有保险库钥匙，不应再是 mvp_disabled）。
     restored = client.get("/api/secrets", headers=headers)
     assert restored.status_code != 404 or restored.json().get("detail", {}).get("code") != "mvp_disabled"
+
+
+def test_mvp_disables_fetch_and_draft(monkeypatch):
+    monkeypatch.setenv("XIAOMAN_MVP", "1")
+    from app.agent import tool_registry
+    from app.agent.tool_registry import ToolError
+    from app.tools.crawl import web_fetch
+    from app.tools.writing import draft_text
+
+    with pytest.raises(ToolError) as fetched:
+        web_fetch("https://example.com")
+    assert fetched.value.code == "mvp_disabled"
+    with pytest.raises(ToolError) as drafted:
+        draft_text("写一封信", {})
+    assert drafted.value.code == "mvp_disabled"
+    refused = tool_registry.invoke_tool("web_search", {"query": "样例"})
+    assert refused["ok"] is False
+    assert refused["error"]["code"] == "mvp_disabled"
 
 
 def test_study_tables_exist_after_request(client, auth):

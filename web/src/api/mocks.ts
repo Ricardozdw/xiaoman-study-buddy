@@ -7,9 +7,9 @@ export const mockPlan: PlanToday = {
   minutes: 30,
   label: "模拟",
   tasks: [
-    { id: "local-learn", kind: "learn", kind_label: "学新的", title: "交第 6 讲课件", status: "todo", done_when: "课件交上来" },
-    { id: "local-practice", kind: "practice", kind_label: "练一练", title: "第 6 讲做 2 道题", status: "todo", done_when: "做完一组题" },
-    { id: "local-repair", kind: "repair", kind_label: "补一补", title: "看看还没掌握的那一点", status: "todo", done_when: "看完要点" },
+    { id: "local-learn", kind: "learn", kind_label: "学新的", title: "交第 6 讲课件", status: "todo", done_when: "课件交上来", minutes: 10 },
+    { id: "local-practice", kind: "practice", kind_label: "练一练", title: "第 6 讲做 2 道题", status: "todo", done_when: "做完一组题", minutes: 10 },
+    { id: "local-repair", kind: "repair", kind_label: "补一补", title: "看看还没掌握的那一点", status: "todo", done_when: "看完要点", minutes: 10 },
   ],
 };
 
@@ -76,6 +76,22 @@ export function mockFor(path: string, method: string): unknown {
   if (url === "/api/quizzes") {
     return { ok: true, status: "ok", mock: true, data: { label: "模拟", questions: [{ id: "q1", stem: "想多学的时候，应该怎么做？", options: [{ id: "A", text: "加到五件" }, { id: "B", text: "件数不变，做深一点" }] }] } };
   }
-  if (url === "/api/me/permissions") return { ok: true, status: "ok", mock: true, data: { permissions: {}, chosen: false } };
+  if (url === "/api/me/permissions") {
+    return {
+      ok: true,
+      status: "ok",
+      mock: true,
+      data: {
+        chosen: false,
+        note: "还没点过时不算用户的选择。",
+        permissions: { auto_adjust_today: null, use_study_history: null, more_later: null },
+        switches: [
+          { key: "auto_adjust_today", label: "自动调整今天的安排", value: null },
+          { key: "use_study_history", label: "用学习记录来出建议", value: null },
+          { key: "more_later", label: "占位", placeholder: true, value: null },
+        ],
+      },
+    };
+  }
   return { ok: true, status: "ok", mock: true, data: {} };
 }

@@ -7,6 +7,7 @@ export type Task = {
   title: string;
   status: "todo" | "done";
   done_when: string;
+  minutes?: number;
 };
 
 export type PlanToday = {
@@ -45,6 +46,20 @@ export type Suggestion = {
   id: string;
   status: string;
   suggestion: { title?: string; body?: string; label?: string };
+};
+
+export type PermissionSwitch = {
+  key: string;
+  label: string;
+  value: boolean | null;
+  placeholder?: boolean;
+};
+
+export type Permissions = {
+  chosen: boolean;
+  note: string;
+  switches: PermissionSwitch[];
+  permissions: Record<string, boolean | null>;
 };
 
 export type Envelope<T> = {

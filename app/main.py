@@ -897,6 +897,13 @@ def _chat(body: ChatRequest) -> ApiResponse:
                 original = previous.get("message") or msg
         intent = selected or "chat"
         if intent == "draft":
+            from app.study.mvp import mvp_enabled
+            if mvp_enabled():
+                return ApiResponse(
+                    thread_id=tid,
+                    status="mvp_disabled",
+                    data={"messages": [{"role": "assistant", "content": "两周里先不写草稿。"}], "error": "mvp_disabled"},
+                )
             out = run_action(
                 {**intent_state, "action": "draft", "message": original, "draft_request": original, "channel": "web"},
                 thread_id=new_thread_id(),
@@ -971,6 +978,13 @@ def _chat(body: ChatRequest) -> ApiResponse:
     from app.agent.router import route_intent
 
     intent = route_intent(intent_state, text=msg)
+    from app.study.mvp import mvp_enabled
+    if intent == "draft" and mvp_enabled():
+        return ApiResponse(
+            thread_id=tid,
+            status="mvp_disabled",
+            data={"messages": [{"role": "assistant", "content": "两周里先不写草稿。"}], "error": "mvp_disabled"},
+        )
     if intent == "draft":
         # A new writing request starts its own thread so an earlier draft card stays intact.
         draft_tid = tid

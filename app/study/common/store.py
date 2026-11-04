@@ -41,6 +41,12 @@ INTENSITY = {
     "normal": ("正常", 30),
     "sprint": ("冲刺", 50),
 }
+# 授权开关。还没点过时 value 是 null，chosen 为 false，默认不算选择。
+PERMISSION_SWITCHES = (
+    {"key": "auto_adjust_today", "label": "自动调整今天的安排"},
+    {"key": "use_study_history", "label": "用学习记录来出建议"},
+    {"key": "more_later", "label": "占位", "placeholder": True},
+)
 KIND_LABEL = {"learn": "学新的", "practice": "练一练", "repair": "补一补"}
 
 
@@ -280,6 +286,14 @@ def _task_dict(row: PlanTask) -> dict[str, Any]:
     }
 
 
+def _minute_shares(total: int, count: int) -> list[int]:
+    """三件加起来等于今天这一档的分钟数。"""
+    if count <= 0:
+        return []
+    base, extra = divmod(total, count)
+    return [base + (1 if index < extra else 0) for index in range(count)]
+
+
 def _latest_plan(session, user_id: str) -> Optional[PlanDay]:
     rows = session.scalars(select(PlanDay).where(PlanDay.user_id == user_id)).all()
     if not rows:
@@ -302,12 +316,18 @@ def plan_today(user_id: str) -> dict[str, Any]:
             .order_by(PlanTask.sort_order)
         ).all()
         label, minutes = INTENSITY.get(plan.intensity, INTENSITY["normal"])
+        shares = _minute_shares(minutes, len(tasks))
+        items = []
+        for task, share in zip(tasks, shares):
+            item = _task_dict(task)
+            item["minutes"] = share
+            items.append(item)
         return {
             "date": plan.day,
             "intensity": plan.intensity,
             "intensity_label": label,
             "minutes": minutes,
-            "tasks": [_task_dict(task) for task in tasks],
+            "tasks": items,
             "label": "模拟",
         }
 
@@ -679,24 +699,47 @@ def undo_action(user_id: str, action_id: str) -> Optional[dict[str, Any]]:
     return data
 
 
+def _switch_view(stored: dict[str, Any]) -> list[dict[str, Any]]:
+    items = []
+    for spec in PERMISSION_SWITCHES:
+        value = stored.get(spec["key"], None)
+        if value is not None:
+            value = bool(value)
+        item = {"key": spec["key"], "label": spec["label"], "value": value}
+        if spec.get("placeholder"):
+            item["placeholder"] = True
+        items.append(item)
+    return items
+
+
 def permissions(user_id: str) -> dict[str, Any]:
     seed(user_id)
     with SessionLocal() as session:
         row = session.get(UserSetting, user_id)
         assert row is not None
+        stored = _loads(row.permissions_json, {})
+        if not isinstance(stored, dict):
+            stored = {}
         return {
-            "permissions": _loads(row.permissions_json, {}),
+            "permissions": {item["key"]: item["value"] for item in _switch_view(stored)},
+            "switches": _switch_view(stored),
             "chosen": bool(row.permissions_chosen),
-            "note": "默认值不算用户的选择。还没点过时 chosen 为 false。",
+            "note": "还没点过时不算用户的选择。",
         }
 
 
 def patch_permissions(user_id: str, permissions_payload: dict[str, Any]) -> dict[str, Any]:
     seed(user_id)
+    allowed = {spec["key"] for spec in PERMISSION_SWITCHES}
+    cleaned = {
+        key: bool(value)
+        for key, value in (permissions_payload or {}).items()
+        if key in allowed and value is not None
+    }
     with SessionLocal() as session:
         row = session.get(UserSetting, user_id)
         assert row is not None
-        row.permissions_json = json.dumps(permissions_payload, ensure_ascii=False)[:4000]
+        row.permissions_json = json.dumps(cleaned, ensure_ascii=False)
         row.permissions_chosen = 1
         session.commit()
     return permissions(user_id)
