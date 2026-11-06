@@ -1,6 +1,7 @@
 """验证构建产物、鉴权和看板 API；只适用于明确启动的测试实例。"""
 import argparse
 from http.cookiejar import CookieJar
+from http.client import HTTPException
 import json
 import re
 import time
@@ -19,7 +20,7 @@ def main():
             with opener.open(base+"/health",timeout=2) as response:
                 assert response.status == 200
             break
-        except (URLError, TimeoutError):
+        except (URLError, TimeoutError, ConnectionError, HTTPException):
             if attempt == 19:
                 raise
             time.sleep(1)
