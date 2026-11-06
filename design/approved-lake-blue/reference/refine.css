@@ -1,0 +1,76 @@
+/* 2026-11-06：按主界面六处批注调整密度、任务卡、操作和微渐变。 */
+html,body{height:100%;overflow:hidden}
+.screen{height:100dvh;min-height:0;overflow:hidden}
+.screen:before{width:304px}
+.global-header{top:19px;left:23px;right:26px;height:44px}
+.brand{gap:10px}
+.rail{left:22px;top:91px;bottom:22px;width:260px;overflow-y:auto;scrollbar-width:thin}
+.rail-title{padding:0 2px;margin-bottom:13px}
+.rail-title h2{font-size:16px;font-weight:550}
+.rail-title>span{background:#e9edf1;padding:2px 8px;border-radius:9px;font-size:13px}
+.intensity{padding:4px;border-radius:15px;background:#e7ebf0;box-shadow:inset 0 1px 2px #334c5d05}
+.intensity>span{line-height:34px}
+.intensity .chosen{border-radius:11px;box-shadow:0 2px 6px #334c5d12,0 0 0 1px #ffffffb0}
+.rail-caption{margin:11px 2px 21px;font-size:13px}
+.today-list{gap:12px}
+.today-list li{position:relative;display:flex;align-items:center;gap:10px;min-height:110px;padding:14px 12px;border-radius:18px;background:linear-gradient(145deg,#fff 0%,#f8fafc 100%);border:1px solid #e1e7ee;box-shadow:0 3px 9px #344d5b04,inset 0 1px 0 #fff}
+.today-list .done{background:linear-gradient(140deg,#fff,#f3f6f8)}
+.today-list .current{background:linear-gradient(135deg,#eef7fa 0%,#deedf3 100%);border-color:#c2dbe6;box-shadow:0 4px 13px #3e7b9410,inset 0 1px 0 #ffffffc0}
+.task-art{width:40px;height:45px;flex-shrink:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 2px #335e6f10)}
+.task-art>svg{width:40px;height:40px;overflow:visible}
+.task-copy{min-width:0;flex:1}
+.today-list .kind{font-size:13px;line-height:1.4}
+.today-list h3{font-size:15px;line-height:1.55;font-weight:500;margin:5px 0}
+.today-list p{font-size:13px;line-height:1.5}
+.today-list .done h3{color:#4e5d68}
+.task-mark{width:17px;height:17px;margin:0 0 0 1px;border-color:#c0cad3;align-self:center}
+.done .task-mark{background:#e5edf1;border-color:#d9e4eb;color:#6d8796}
+.current .task-mark{border-width:1.3px;box-shadow:0 0 0 4px #d9eaf133}
+.current .task-mark>span{width:7px;height:7px}
+.my-materials{margin-top:28px}
+.materials-heading{margin:0 3px 8px}
+.materials-list{padding:4px;border:1px solid #e5eaf0;border-radius:13px;background:#ffffffb8;box-shadow:inset 0 1px 0 #fff}
+.material{margin:0;min-height:38px;padding:6px 8px;gap:8px;line-height:20px;border-radius:9px;font-size:13px}
+.material-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:24px;height:24px;border-radius:7px;background:#edf3f6;box-shadow:inset 0 0 0 1px #e3edf2}
+.material .material-icon .icon{width:14px;height:14px;color:#7491a2;stroke-width:1.45}
+.material-name{display:flex;align-items:baseline;gap:5px;min-width:0;color:#556976;white-space:nowrap}
+.lecture-number{color:#6c7c88;font-variant-numeric:tabular-nums}
+.material-dot{color:#9aa8b2}
+.rail-footer{padding:20px 1px 0;min-height:52px}
+.chat{margin-left:304px;height:100%;padding:29px 0 15px;display:flex;align-items:center;flex-direction:column;overflow:hidden}
+.companion{flex:0 0 auto;text-align:center}
+.avatar-wrap,.avatar-wrap img{width:102px;height:102px}
+.avatar-edit{width:27px;height:27px;right:-4px;bottom:0}
+.companion h1{font-size:18px;line-height:1.5;margin-top:4px}
+.companion>p{font-size:13px;margin-top:2px}
+.conversation{width:min(1040px,calc(100% - 96px));flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:20px 2px 22px;margin:0 auto;scrollbar-width:thin;scrollbar-color:#dbe5eb transparent}
+.date{font-size:13px;margin-bottom:18px}
+.message{max-width:76%;padding:10px 17px;font-size:16px;line-height:1.8;border-radius:20px;margin-bottom:13px;flex-shrink:0}
+.message.assistant{max-width:min(76%,720px);background:#f0f2f4;border-bottom-left-radius:6px}
+.message.user{border-bottom-right-radius:6px;background:linear-gradient(140deg,#e8f3f6,#dfeef3);border:1px solid #dcecf1}
+.message.grouped{margin-top:-6px}
+.message.grouped p{line-height:1.8}
+.second-user{margin-top:16px}
+.practice-card{position:relative;isolation:isolate;width:470px;max-width:78%;padding:18px 21px 18px;margin-top:-2px;border-radius:22px;border:1px solid #dae7ed;background:radial-gradient(ellipse at 100% 0%,#e7f2f780,transparent 66%),linear-gradient(140deg,#fff 0%,#fafcfe 55%,#f1f7fa 100%);box-shadow:0 7px 22px #3a617008,inset 0 1px 0 #fff}
+.practice-top{margin-bottom:9px;font-size:13px;color:#647582;gap:8px}
+.book-icon{width:27px;height:27px;border-radius:8px;background:linear-gradient(135deg,#e6f3f8,#dcebf2);box-shadow:inset 0 1px 0 #ffffff9c;color:#4f879d}
+.practice-card h2{font-size:19px;font-weight:550;margin-bottom:4px;letter-spacing:.1px}
+.practice-card>p{font-size:14px;color:#697985}
+.practice-actions{--action-height:44px;--action-padding-x:14px;--action-radius:14px;display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:19px;font-size:14px}
+.practice-actions>button{font:inherit;font-size:14px;font-weight:500;line-height:20px;height:var(--action-height);min-height:var(--action-height);min-width:0;flex:0 0 auto;padding:0 var(--action-padding-x);border-radius:var(--action-radius);display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:box-shadow .16s,transform .16s}
+.secondary-action{background:#ffffffb3;border:1px solid #dce5eb;color:#607581;box-shadow:0 1px 2px #2b506208,inset 0 1px 0 #fff}
+.primary-action{color:#fff;border:1px solid #2f7087;background:linear-gradient(180deg,#3a7b91 0%,#306b80 100%);box-shadow:inset 0 1px 0 #ffffff2b,0 3px 7px #2e6b811a,0 1px 1px #1e5b7014}
+.practice-actions>button:hover{transform:translateY(-1px);box-shadow:0 5px 11px #2e6b8120}
+.practice-actions>button:focus-visible{outline:3px solid #85b8cd;outline-offset:3px}
+.composer{width:min(1080px,calc(100% - 84px));flex:0 0 auto;margin-top:10px;min-height:66px;padding:9px 11px 9px 15px;border-radius:25px;border-color:#dde7ec;box-shadow:0 5px 22px #2c536810,0 1px 3px #2c536806,inset 0 1px 0 #fff;background:#fff}
+.add{width:34px;min-height:44px}
+.send{border-radius:16px;width:44px;height:44px;background:linear-gradient(180deg,#3a7b91,#306b80);box-shadow:inset 0 1px 0 #ffffff2b,0 2px 4px #2d647716}
+.lecture{border:1px solid #e5eef2;background:#f0f6f8;padding:6px 11px;border-radius:13px;font-size:13px}
+.disclaimer{flex:0 0 auto;font-size:13px;line-height:20px;margin-top:9px;color:#6c7985}
+.floating-materials{top:101px;right:27px;min-height:44px;padding:10px 14px;border-radius:16px;background:linear-gradient(#fff,#fcfdfe);border-color:#e1e9ef;box-shadow:0 3px 13px #345e7208}
+.floating-materials span{display:inline}
+@media(min-width:1500px){.chat{padding-top:34px;padding-bottom:22px}.conversation{padding-top:23px}.message{margin-bottom:16px}.message.grouped{margin-top:-7px}.second-user{margin-top:19px}.practice-card{width:490px}.avatar-wrap,.avatar-wrap img{width:112px;height:112px}.composer{margin-top:13px}}
+@media(max-width:1240px){.screen:before{width:278px}.rail{left:18px;width:242px}.chat{margin-left:278px}.conversation{width:calc(100% - 66px)}.composer{width:calc(100% - 56px)}.floating-materials{right:20px}.today-list li{padding:13px 10px;gap:8px}.task-art,.task-art>svg{width:35px}.practice-card{max-width:86%}}
+@media(max-height:850px) and (min-width:851px){.rail{top:83px;bottom:17px}.rail-caption{margin-bottom:15px}.today-list{gap:10px}.today-list li{min-height:100px;padding-top:11px;padding-bottom:11px}.my-materials{margin-top:23px}.chat{padding-top:18px;padding-bottom:12px}.avatar-wrap,.avatar-wrap img{width:83px;height:83px}.companion h1{font-size:17px}.conversation{padding-top:14px}.message{margin-bottom:11px}.disclaimer{margin-top:7px}.floating-materials{top:90px}}
+@media(max-width:850px){.screen:before,.rail{display:none}.global-header{left:17px;right:17px;top:15px}.brand strong{font-size:19px}.global-right{gap:8px}.mock-label{font-size:12px;margin-right:0}.circle-control{width:38px;height:38px}.chat{margin-left:0;padding-top:61px;padding-bottom:12px}.avatar-wrap,.avatar-wrap img{width:78px;height:78px}.companion h1{font-size:17px;margin-top:1px}.companion>p{font-size:13px}.conversation{width:calc(100% - 36px);padding-top:14px;padding-bottom:17px}.date{margin-bottom:14px}.message{max-width:92%;font-size:15px;padding:10px 14px}.message.assistant{max-width:92%}.practice-card{width:100%;max-width:96%;padding:16px 17px}.practice-card h2{font-size:18px}.practice-actions{gap:8px}.composer{width:calc(100% - 28px);margin-top:6px;min-height:62px;border-radius:23px}.placeholder{font-size:14px;white-space:normal}.lecture{display:none}.floating-materials{top:91px;right:17px;padding:10px 12px;border-radius:14px}.floating-materials span{display:none}.disclaimer{font-size:12px;margin-top:7px}}
+@media(prefers-reduced-motion:reduce){.practice-actions>button{transition:none}.practice-actions>button:hover{transform:none}}

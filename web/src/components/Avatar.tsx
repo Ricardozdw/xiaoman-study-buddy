@@ -1,14 +1,11 @@
+// 小满形象：湖泊蓝短耳绒毛原图（design/approved-lake-blue/），不重画、不换色。
+// mood 先保留给以后的动作和表情；现在只有一张静态图，读屏文字随 mood 变化。
 type Mood = "idle" | "wave";
 
-export function Avatar({ mood = "idle" }: { mood?: Mood }) {
+export function Avatar({ mood = "idle", size }: { mood?: Mood; size?: number }) {
   return (
-    <span className="avatar" role="img" aria-label={mood === "wave" ? "小满在打招呼" : "小满"}>
-      <svg viewBox="0 0 64 64" width="36" height="36" aria-hidden="true">
-        <circle cx="32" cy="32" r="30" fill="currentColor" opacity="0.15" />
-        <circle cx="24" cy="28" r="3" fill="currentColor" />
-        <circle cx="40" cy="28" r="3" fill="currentColor" />
-        <path d={mood === "wave" ? "M22 40c4 6 16 6 20 0" : "M24 42h16"} stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
-      </svg>
+    <span className="avatar" role="img" aria-label={mood === "wave" ? "小满在打招呼" : "小满"} style={size ? { width: size, height: size } : undefined}>
+      <img src={`${import.meta.env.BASE_URL}xiaoman-lake-blue.png`} alt="" draggable={false} />
     </span>
   );
 }
