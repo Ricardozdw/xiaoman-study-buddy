@@ -1,0 +1,41 @@
+name: Dashboard and evaluation
+on:
+  pull_request:
+  push:
+permissions:
+  contents: read
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
+      - run: python -m pytest -q tests/test_study_dashboard.py tests/test_dashboard_evals.py tests/test_dashboard_release.py
+      - name: Repeat deterministic evaluation against its baseline
+        run: |
+          python evals/run.py --output data/evals/first
+          python evals/run.py --baseline data/evals/first.json --output data/evals/repeat
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dashboard-evaluation
+          path: data/evals/
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -f deploy/xiaoman/Dockerfile -t xiaoman-ci .
+      - name: Start the isolated test instance
+        run: docker run -d --name xiaoman-ci -p 8787:8787 -e AUTH_SECRET=ci-only-not-a-production-secret-123456 -e XIAOMAN_MVP=1 -e PROACTIVE_ENABLED=0 xiaoman-ci
+      - name: Verify UI, session and dashboard
+        run: python deploy/xiaoman/smoke_http.py
+      - name: Container logs
+        if: failure()
+        run: docker logs xiaoman-ci

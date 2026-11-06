@@ -3,6 +3,8 @@ import { api, ensureSession, readStream } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
 import { DashboardLine } from "../lines/dashboard/Placeholder";
+import { DashboardPanel, DashboardSummary } from "../lines/dashboard/Dashboard";
+import { fetchBoard, isDashboardRequest, type Board } from "../lines/dashboard/client";
 import { MaterialsLine } from "../lines/materials/Placeholder";
 import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
@@ -14,7 +16,7 @@ import { StudyCardView } from "./cards/StudyCardView";
 type Theme = "system" | "light" | "dark";
 type FontSize = "sm" | "md" | "lg";
 type Tab = "note" | "page" | "board";
-type Bubble = { id: string; role: "user" | "xiaoman"; text: string };
+type Bubble = { id: string; role: "user" | "xiaoman"; text: string; dashboard?: Board };
 
 const INTENSITY: { id: Intensity; label: string }[] = [
   { id: "light", label: "轻松" },
@@ -110,14 +112,23 @@ export function Shell() {
     setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "user", text }, { id: replyId, role: "xiaoman", text: "" }]);
     setBusy(true);
     try {
+      if (isDashboardRequest(text)) {
+        const dashboard = await fetchBoard();
+        setBubbles((list) => list.map((item) => item.id === replyId ? { ...item, dashboard } : item));
+        setBoard(dashboard);
+        return;
+      }
       const reply = await readStream("/api/chat/stream", { message: text, lecture_id: lectureId }, (full) => {
         setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: full } : item)));
       });
       if (!reply) {
         setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）我在。" } : item)));
       }
-    } catch {
-      setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）后端这会儿没接上，我先用本地的同一形状回你。" } : item)));
+    } catch (error) {
+      const fallback = isDashboardRequest(text)
+        ? error instanceof Error ? error.message : "看板暂时没接上，请稍后重试。"
+        : "（模拟）后端这会儿没接上，我先用本地的同一形状回你。";
+      setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: fallback } : item)));
       setSource("mock");
     } finally {
       setBusy(false);
@@ -230,7 +241,7 @@ export function Shell() {
             {bubbles.map((bubble) => (
               <div key={bubble.id} className={bubble.role === "user" ? "bubble user" : "bubble"}>
                 {bubble.role === "xiaoman" && <Avatar />}
-                <p>{bubble.text}</p>
+                {bubble.dashboard ? <DashboardSummary board={bubble.dashboard} onOpen={() => setTab("board")} /> : <p>{bubble.text}</p>}
               </div>
             ))}
             {cards.map((card) => (
@@ -290,13 +301,7 @@ export function Shell() {
               </div>
             )}
             {tab === "page" && <pre className="page">{pageText}</pre>}
-            {tab === "board" && (
-              <div>
-                <p>{board.note}</p>
-                <p>这周打开过 {board.studied_days} 天 · 做题 {board.attempt_count} · 待看错题 {board.mistakes_due}</p>
-                <p className="badge">{board.label}</p>
-              </div>
-            )}
+            {tab === "board" && <DashboardPanel onUpdate={setBoard} />}
             <section className="lines">
               <h3>五条线的位置</h3>
               <MaterialsLine />
