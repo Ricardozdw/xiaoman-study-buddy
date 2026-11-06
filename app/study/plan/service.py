@@ -29,7 +29,7 @@ from app.study.common.models import (
     Question,
     StudyFile,
 )
-from app.study.plan import scheduler
+from app.study.plan import demo, scheduler
 from app.study.plan.scheduler import (
     KIND_LABEL,
     LectureState,
@@ -47,8 +47,8 @@ DEFAULT_INTENSITY = "normal"
 
 
 def today_for(user_id: str) -> date:
-    """计划线眼里的“今天”。以后“跳到明天”演示开关只改这里。"""
-    return datetime.now(_TZ).date()
+    """计划线眼里的“今天”：真实今天 + 演示开关往后跳的天数（开关关着时为 0）。"""
+    return demo.today(user_id)
 
 
 def _local_date(raw: str) -> Optional[date]:

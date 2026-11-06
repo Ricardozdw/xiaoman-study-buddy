@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.study.common import store
 from app.study.common.http import missing, pack
-from app.study.plan import service
+from app.study.plan import demo, service
 
 router = APIRouter(tags=["计划"])
 
@@ -28,6 +28,10 @@ class TaskPatch(BaseModel):
 
 class IntensityPatch(BaseModel):
     intensity: str = Field(description="light 轻松 / normal 正常 / sprint 冲刺")
+
+
+class DemoStep(BaseModel):
+    days: int = Field(description="往后跳几天：1 跳到明天，2 跳过两天，8 跳过 8 天")
 
 
 class PermissionPatch(BaseModel):
@@ -107,3 +111,29 @@ def permissions_get(user_id: str = Depends(require_user)):
 @router.patch("/api/me/permissions")
 def permissions(body: PermissionPatch, user_id: str = Depends(require_user)):
     return pack(store.patch_permissions(user_id, body.permissions))
+
+
+# ---------- 演示开关（只在 XIAOMAN_DEMO_CLOCK=1 时可用，界面标“演示用”）----------
+
+
+@router.get("/api/demo/clock")
+def demo_clock(user_id: str = Depends(require_user)):
+    return pack(demo.view(user_id))
+
+
+@router.post("/api/demo/clock")
+def demo_clock_advance(body: DemoStep, user_id: str = Depends(require_user)):
+    if not demo.enabled():
+        missing()
+    try:
+        data = demo.advance(user_id, body.days)
+    except ValueError as exc:
+        return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    return pack(data)
+
+
+@router.post("/api/demo/clock/reset")
+def demo_clock_reset(user_id: str = Depends(require_user)):
+    if not demo.enabled():
+        missing()
+    return pack(demo.reset(user_id))
