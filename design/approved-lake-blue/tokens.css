@@ -1,0 +1,36 @@
+/* 已确认语义变量：供正式实现提炼，不是可直接替换业务样式的完整 CSS。 */
+:root {
+  --xm-brand: #5b9fb6;
+  --xm-primary: #306b80;
+  --xm-primary-light: #3a7b91;
+  --xm-primary-fg: #fff;
+  --xm-bg: #fff;
+  --xm-rail-bg: #f5f6f8;
+  --xm-ink: #2c3439;
+  --xm-muted: #696f78;
+  --xm-user-bubble-start: #e8f3f6;
+  --xm-user-bubble-end: #dfeef3;
+  --xm-user-bubble-border: #dcecf1;
+  --xm-assistant-bubble: #f0f2f4;
+  --xm-card-border: #dae7ed;
+  --xm-card-bg-start: #fff;
+  --xm-card-bg-middle: #fafcfe;
+  --xm-card-bg-end: #f1f7fa;
+  --xm-selected-start: #eef7fa;
+  --xm-selected-end: #deedf3;
+  --xm-radius-bubble: 20px;
+  --xm-radius-card: 22px;
+  --xm-radius-task: 18px;
+  --xm-radius-composer: 25px;
+  --xm-button-height: 44px;
+  --xm-button-padding-x: 14px;
+  --xm-button-radius: 14px;
+  --xm-button-font-size: 14px;
+  --xm-button-font-weight: 500;
+  --xm-button-line-height: 20px;
+  --xm-button-min-width: 0px;
+  --xm-font-body: 16px;
+  --xm-font-assist: 13px;
+  --xm-font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+

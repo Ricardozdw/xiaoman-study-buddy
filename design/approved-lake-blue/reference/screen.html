@@ -1,0 +1,54 @@
+<!doctype html>
+<!-- v0.4：2026-11-06 用户选择 B 湖泊蓝。沿用气泡对话、浮层控件、灰色左栏和白色聊天区。
+     小满为用户选定的 B 透明原图；lake.css 定义本轮视觉体系。静态审阅稿，不接接口。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小满 · 湖泊蓝主界面 · 细节修订</title><link rel="stylesheet" href="screen.css"><link rel="stylesheet" href="lake.css"><link rel="stylesheet" href="refine.css"></head>
+<body>
+<svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="menu" viewBox="0 0 24 24"><path d="M5 8h14M5 16h14"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m6 12 4 4 8-9"/></symbol>
+<symbol id="book" viewBox="0 0 24 24"><path d="M12 5v15M3 4c4-1 6-1 9 1 3-2 5-2 9-1v15c-4-1-6-1-9 1-3-2-5-2-9-1Z"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8Zm0 0v5h5M8 12h8M8 16h6"/></symbol>
+<symbol id="chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="up" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
+<symbol id="expand" viewBox="0 0 24 24"><path d="M8 5h11v11M19 5 5 19"/></symbol>
+<symbol id="edit" viewBox="0 0 24 24"><path d="m4 16 12-12 4 4L8 20H4Zm10-10 4 4"/></symbol>
+<symbol id="moon" viewBox="0 0 24 24"><path d="M20 15A8 8 0 0 1 9 4a8.5 8.5 0 1 0 11 11Z"/></symbol>
+<symbol id="audio" viewBox="0 0 24 24"><path d="M5 10v4m4-7v10m4-13v16m4-13v10m4-7v4"/></symbol>
+<linearGradient id="cover-blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#83bdd0"/><stop offset="1" stop-color="#4e8fa7"/></linearGradient>
+<linearGradient id="pencil-blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9bc9d6"/><stop offset="1" stop-color="#5b9fb6"/></linearGradient>
+<symbol id="task-learn" viewBox="0 0 40 40"><path d="M10 9h20v25H10z" fill="#395f7320"/><path d="M11 7h19v25H11c-3 0-4-2-4-4V11c0-2 1-4 4-4" fill="url(#cover-blue)"/><path d="M12 8h16v20H12z" fill="#ffffff25"/><path d="M12 31h18v-4H12c-3 0-3 4 0 4" fill="#f4f5f0"/><path d="M16 13h8m-8 4h6" fill="none" stroke="#edf8fb" stroke-width="2" stroke-linecap="round"/><path d="M11 8v18" fill="none" stroke="#386f88" stroke-width="1.5" opacity=".4"/></symbol>
+<symbol id="task-practice" viewBox="0 0 40 40"><rect x="9" y="8" width="22" height="27" rx="4" fill="#36576b18"/><rect x="7" y="6" width="22" height="27" rx="4" fill="#f9fcfd" stroke="#c9dfe7"/><path d="M12 13h10m-10 5h7m-7 5h5" fill="none" stroke="#98b9c7" stroke-width="1.5" stroke-linecap="round"/><path d="m19 27 3-8 10-10 5 5-10 10-8 3" fill="url(#pencil-blue)"/><path d="m19 27 3-8 5 5z" fill="#e5d4b8"/><path d="m19 27 1-3 2 2z" fill="#4e6872"/><path d="m29 12 5 5" fill="none" stroke="#e5f3f7" stroke-width="2"/></symbol>
+<symbol id="task-review" viewBox="0 0 40 40"><path d="M10 12h18v22H10z" fill="#36576b16"/><rect x="8" y="10" width="18" height="22" rx="4" fill="#f8fbfd" stroke="#c9dfe7"/><path d="M13 17h7m-7 5h6" stroke="#9fbcc9" stroke-width="1.6" stroke-linecap="round"/><path d="M22 9a10 10 0 0 1 10 14" fill="none" stroke="#6fa5ba" stroke-width="3.2" stroke-linecap="round"/><path d="m28 21 4 4 4-4" fill="none" stroke="#6fa5ba" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</defs></svg>
+<div class="screen">
+ <header class="global-header"><div class="brand"><span class="circle-control plain"><svg class="icon"><use href="#menu"/></svg></span><strong>小满</strong></div><div class="global-right"><span class="mock-label">模拟内容</span><span class="circle-control"><svg class="icon"><use href="#moon"/></svg></span><span class="circle-control"><svg class="icon"><use href="#more"/></svg></span></div></header>
+ <aside class="rail" aria-label="今天三件与资料">
+  <div class="rail-title"><h2>今天三件</h2><span>1 / 3</span></div>
+  <div class="intensity"><span>轻松</span><span class="chosen">正常</span><span>冲刺</span></div><p class="rail-caption">约 30 分钟 · 按自己的节奏来</p>
+  <ol class="today-list">
+   <li class="done"><span class="task-art"><svg aria-hidden="true"><use href="#task-learn"/></svg></span><div class="task-copy"><span class="kind">学新的</span><h3>第 6 讲的学习要点</h3><p>已完成</p></div><span class="task-mark"><svg class="icon"><use href="#check"/></svg></span></li>
+   <li class="current"><span class="task-art"><svg aria-hidden="true"><use href="#task-practice"/></svg></span><div class="task-copy"><span class="kind">练一练</span><h3>第 6 讲，练 5 道题</h3><p>10 分钟</p></div><span class="task-mark"><span></span></span></li>
+   <li><span class="task-art"><svg aria-hidden="true"><use href="#task-review"/></svg></span><div class="task-copy"><span class="kind">补一补</span><h3>再看看范围管理</h3><p>第 5 讲 · 5 分钟</p></div><span class="task-mark"></span></li>
+  </ol>
+  <section class="my-materials"><div class="materials-heading"><h2>我的资料</h2><svg class="icon"><use href="#down"/></svg></div><div class="materials-list"><div class="material"><span class="material-icon"><svg class="icon"><use href="#file"/></svg></span><span class="material-name"><span class="lecture-number">第 6 讲</span><span class="material-dot">·</span><span>进度管理</span></span></div><div class="material"><span class="material-icon"><svg class="icon"><use href="#file"/></svg></span><span class="material-name"><span class="lecture-number">第 5 讲</span><span class="material-dot">·</span><span>范围管理</span></span></div></div></section>
+  <div class="rail-footer"><span class="me">我</span><span>我的学习空间</span><svg class="icon"><use href="#chevron"/></svg></div>
+ </aside>
+ <main class="chat" aria-label="学习对话静态预览">
+  <div class="companion"><div class="avatar-wrap"><img src="assets/xiaoman-lake-blue.png" alt="小满：B 湖泊蓝短耳绒毛形象"><span class="avatar-edit"><svg class="icon"><use href="#edit"/></svg></span></div><h1>小满</h1><p>在这儿，陪你慢慢学</p></div>
+  <div class="conversation">
+   <div class="date">今天 14:32</div>
+   <div class="message user"><p>关键路径和最短工期，我还是有点绕。</p></div>
+   <div class="message assistant"><p>名字确实容易绕。<br>找关键路径，是找<strong>总工期最长的那条路</strong>；这条路的长度，决定了项目<strong>最早什么时候完成</strong>。</p></div>
+   <div class="message assistant grouped"><p>就像一起出门，其他人都准备好了，也得等用时最久的那个人。<span class="citation">示例第 12 页 <svg class="icon"><use href="#expand"/></svg></span></p></div>
+   <div class="message user second-user"><p>明白了，陪我练几道吧。</p></div>
+   <div class="message assistant"><p>好呀。我们一题一题来，不着急。</p></div>
+   <article class="practice-card"><div class="practice-top"><span class="book-icon"><svg class="icon"><use href="#book"/></svg></span><span>第 6 讲 · 进度管理</span><span class="practice-dot"></span><span>模拟</span></div><h2>用 5 道题，巩固一下</h2><p>约 10 分钟，做完就算完成。</p><div class="practice-actions"><button type="button" class="secondary-action">晚点再做</button><button type="button" class="primary-action">开始练习</button></div></article>
+  </div>
+  <div class="composer"><span class="add"><svg class="icon"><use href="#plus"/></svg></span><span class="placeholder">跟小满说，或把课件交给它…</span><span class="lecture">@ 第 6 讲 <svg class="icon"><use href="#down"/></svg></span><span class="send"><svg class="icon"><use href="#up"/></svg></span></div>
+  <p class="disclaimer">AI 整理，可以改 · 重要内容请对照原文</p>
+ </main>
+ <div class="floating-materials"><svg class="icon"><use href="#book"/></svg><span>学习资料</span><svg class="icon"><use href="#chevron"/></svg></div>
+</div></body></html>
