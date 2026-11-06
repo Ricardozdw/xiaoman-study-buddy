@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.study.common import store
 from app.study.common.http import missing, pack
-from app.study.plan import demo, goal, service
+from app.study.plan import demo, goal, opening, progress, service
 
 router = APIRouter(tags=["计划"])
 
@@ -149,6 +149,18 @@ def plan_adjust(body: AdjustBody, user_id: str = Depends(require_user)):
 def plan_quick_replies(user_id: str = Depends(require_user)):
     """只给当下说得通的快捷回复（已经轻松就不再给“只有 15 分钟”）。"""
     return pack({"items": service.plan_today(user_id)["quick_replies"]})
+
+
+@router.get("/api/plan/opening")
+def plan_opening(user_id: str = Depends(require_user)):
+    """小满开场白（AI 能力“开场与建议”）。同一天只生成一次；没 key 时用规则开场白。"""
+    return pack(opening.opening(user_id))
+
+
+@router.get("/api/plan/progress")
+def plan_progress(user_id: str = Depends(require_user)):
+    """给看板线：这周学了几天、目标进度、现在在哪个阶段。不做连续天数。"""
+    return pack(progress.progress(user_id))
 
 
 @router.get("/api/suggestions")
