@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ensureSession, readStream } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
@@ -8,7 +8,7 @@ import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
 import { QaLine } from "../lines/qa/Placeholder";
 import { Avatar } from "./Avatar";
-import { collapseCard, previewCards, reopenCard, type StudyCard } from "./cards/logic";
+import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
 import { Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
@@ -28,9 +28,11 @@ export function Shell() {
   const [board, setBoard] = useState<Dashboard>(mockDashboard);
   const [note, setNote] = useState<NoteItem>(mockNotes[0]);
   const [pageText, setPageText] = useState(mockNotes[0].content?.points?.join("\n") || "");
-  const [cards, setCards] = useState<StudyCard[]>(previewCards);
+  // 一开始对话流里不放卡片；各线接上真实业务后，由它们按“一次只出一张”往这里加。
+  // 七种卡片的样子仍可用 cards/logic.ts 的 previewCards() 查看。
+  const [cards, setCards] = useState<StudyCard[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([
-    { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边。下面这七张卡是地基预览，正式使用时一次只请你做一个决定。" },
+    { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边，想从哪件开始都行；有不懂的，直接问我。" },
   ]);
   const [draft, setDraft] = useState("");
   const [lectureId, setLectureId] = useState("lec-6");
@@ -39,6 +41,58 @@ export function Shell() {
   const [font, setFont] = useState<FontSize>("md");
   const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
+  // 往下滑时小满缩成顶部小头像，给对话腾出地方。
+  const [compact, setCompact] = useState(false);
+  const streamRef = useRef<HTMLDivElement>(null);
+
+  const companionRef = useRef<HTMLDivElement>(null);
+  // 收起 / 展开时，头像从原来的位置平滑移到新位置（先记下旧位置，渲染后再补一段动画）。
+  const avatarFrom = useRef<DOMRect | null>(null);
+
+  function changeCompact(next: boolean) {
+    avatarFrom.current = companionRef.current?.querySelector(".avatar")?.getBoundingClientRect() ?? null;
+    setCompact(next);
+  }
+
+  useLayoutEffect(() => {
+    const avatar = companionRef.current?.querySelector<HTMLElement>(".avatar");
+    const from = avatarFrom.current;
+    avatarFrom.current = null;
+    if (!avatar || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = avatar.getBoundingClientRect();
+    if (!to.width) return;
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    const scale = from.width / to.width;
+    avatar.animate(
+      [{ transformOrigin: "top left", transform: `translate(${dx}px, ${dy}px) scale(${scale})` }, { transformOrigin: "top left", transform: "none" }],
+      { duration: 240, easing: "cubic-bezier(.2,.7,.2,1)" },
+    );
+  }, [compact]);
+
+  function onStreamScroll() {
+    const el = streamRef.current;
+    if (!el) return;
+    if (!compact) {
+      // 收起后对话区会变高；只有收起后仍然需要滚动时才收起，否则会在“收起—展开”之间来回跳。
+      const gain = companionRef.current?.offsetHeight ?? 0;
+      const stillScrolls = el.scrollHeight - el.clientHeight - gain > 48;
+      if (el.scrollTop > 24 && stillScrolls) changeCompact(true);
+    } else if (el.scrollTop < 8) {
+      changeCompact(false);
+    }
+  }
+
+  // 有新消息时滚到最底下；小满的回复边生成边变长时，只要用户本来就在底部附近，也跟着滚。
+  const lastCount = useRef(0);
+  useEffect(() => {
+    const el = streamRef.current;
+    if (!el) return;
+    const count = bubbles.length + cards.length;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (count !== lastCount.current || nearBottom) el.scrollTop = el.scrollHeight;
+    lastCount.current = count;
+  }, [bubbles, cards.length]);
 
   // 暗色模式暂不做（以后作为换肤加回来），这里只管字号。
   useEffect(() => {
@@ -225,7 +279,7 @@ export function Shell() {
             </section>
           )}
         </aside>
-        <main className="chat">
+        <main className={compact ? "chat compact" : "chat"}>
           <div className="chat-top">
             <div className="chat-brand">
               <IconButton icon="menu" label="打开今天三件" onClick={() => setRail((open) => !open)} />
@@ -243,18 +297,20 @@ export function Shell() {
                 <option value="lg">更大</option>
               </select>
             </label>
+            {/* 展开时“学习文档”在第二行；往下滑收起后并入顶栏这一行，不挡对话。 */}
+            <span className="row-break" aria-hidden="true" />
+            <button type="button" className="floating-materials" onClick={() => setTab("note")} aria-label="打开学习文档">
+              <Icon name="book" />
+              <span>学习文档</span>
+              <Icon name="chevron" />
+            </button>
           </div>
-          <button type="button" className="floating-materials" onClick={() => setTab("note")} aria-label="打开学习文档">
-            <Icon name="book" />
-            <span>学习文档</span>
-            <Icon name="chevron" />
-          </button>
-          <div className="companion">
+          <div className="companion" ref={companionRef}>
             <Avatar mood="wave" />
             <h1>小满</h1>
             <p>在这儿，陪你慢慢学</p>
           </div>
-          <div className="stream">
+          <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
             {bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>

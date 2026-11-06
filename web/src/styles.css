@@ -209,10 +209,7 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .pill-select { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 6px 0 14px; border-radius: 22px; background: #fff; box-shadow: 0 3px 16px #2b445008, 0 0 0 1px #e8edf180; font-size: var(--aux); color: #62737f; }
 .pill-select select { border: 0; background: transparent; height: 40px; font-size: var(--aux); color: var(--xm-ink); padding: 0 4px; }
 .floating-materials {
-  position: absolute;
-  z-index: 3;
-  top: 101px;
-  right: 27px;
+  margin-left: auto;
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -225,6 +222,11 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   color: #62737f;
   font-size: var(--aux);
 }
+.chat-top { flex-wrap: wrap; row-gap: 0; }
+.chat-top .floating-materials { margin-top: 38px; }
+.chat-top .row-break { flex-basis: 100%; height: 0; }
+.chat.compact .chat-top .row-break { display: none; }
+.chat.compact .chat-top .floating-materials { margin-left: 0; margin-top: 0; }
 .floating-materials .icon { width: 18px; height: 18px; }
 .floating-materials .icon:last-child { width: 12px; height: 12px; margin-left: 3px; }
 
@@ -232,6 +234,16 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .companion .avatar { width: 102px; height: 102px; margin: auto; filter: drop-shadow(0 6px 7px #35596a09); }
 .companion h1 { font-size: 18px; font-weight: 550; line-height: 1.5; margin-top: 4px; color: var(--xm-ink); }
 .companion > p { font-size: var(--aux); color: var(--t2); margin-top: 2px; }
+/* 往下滑后：小满缩成顶部一行小头像 + 名字，给对话腾地方 */
+.chat { transition: padding-top 0.2s ease; }
+.chat.compact { padding-top: 19px; }
+.chat.compact .companion { align-self: flex-start; display: flex; align-items: center; gap: 8px; height: 44px; padding-left: 23px; }
+.chat.compact .companion h1, .chat.compact .companion > p { animation: xm-fade-in 0.24s ease both; }
+@keyframes xm-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.chat.compact .companion .avatar { width: 36px; height: 36px; margin: 0; }
+.chat.compact .companion h1 { font-size: 16px; margin: 0; }
+.chat.compact .companion > p { margin: 0; white-space: nowrap; }
+.chat.compact .companion > p::before { content: "·"; margin-right: 8px; color: #9aa8b2; }
 .avatar { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; }
 .avatar img { width: 100%; height: 100%; object-fit: contain; }
 
@@ -315,7 +327,6 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .rail { padding-left: 18px; padding-right: 18px; }
   .stream { width: calc(100% - 66px); }
   .composer { width: calc(100% - 56px); }
-  .floating-materials { right: 20px; }
   .task-card { padding: 13px 10px; gap: 8px; }
   .task-art, .task-art > svg { width: 35px; }
   .card { max-width: 86%; }
@@ -331,7 +342,7 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .companion h1 { font-size: 17px; }
   .stream { padding-top: 14px; }
   .disclaimer { margin-top: 7px; }
-  .floating-materials { top: 90px; }
+  .chat-top .floating-materials { margin-top: 27px; }
 }
 @media (max-width: 850px) {
   .shell, .shell:has(.workbench) { grid-template-columns: minmax(0, 1fr); }
@@ -339,9 +350,10 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .shell.rail-open .rail { display: block; position: fixed; z-index: 6; inset: 0 auto 0 0; width: min(304px, 88vw); box-shadow: 8px 0 30px #2c536820; }
   .rail-brand .rail-close { display: inline-flex; }
   .chat { padding-top: 61px; padding-bottom: 12px; }
-  .chat-top { top: 12px; left: 12px; right: 14px; gap: 8px; }
+  .chat-top { top: 12px; left: 12px; right: 14px; column-gap: 8px; }
   .chat-brand { display: flex; }
-  .floating-materials { top: 91px; right: 17px; padding: 10px 12px; border-radius: 14px; }
+  .chat-top .floating-materials { margin-top: 35px; }
+  .floating-materials { padding: 10px 12px; border-radius: 14px; }
   .floating-materials span { display: none; }
   .companion .avatar { width: 78px; height: 78px; }
   .companion h1 { font-size: 17px; margin-top: 1px; }
@@ -357,3 +369,8 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   * { animation: none !important; transition: none !important; }
   .btn:hover { transform: none !important; }
 }
+
+/* 紧凑头部放在最后，确保各尺寸下都生效 */
+.chat.compact .companion .avatar { width: 36px; height: 36px; }
+/* 窄屏顶栏已有“☰ 小满”，滑动后直接收起大头像 */
+@media (max-width: 850px) { .chat.compact { padding-top: 61px; } .chat.compact .companion { display: none; } }
