@@ -6,6 +6,8 @@ import json
 
 import pytest
 
+from tests.materials_pdf_helpers import pdf_bytes
+
 REQUIRED_PATHS = [
     "/api/files/upload-url",
     "/api/files/{file_id}/complete",
@@ -73,10 +75,18 @@ def test_notes_pages_and_files(client, auth):
     created = client.post("/api/files/upload-url", json={"filename": "a.pdf"}, headers=headers).json()["data"]
     file_id = created["file_id"]
     assert created["upload_url"].endswith("/raw")
-    assert client.put(f"/api/files/{file_id}/raw", headers=headers).status_code == 200
+    assert client.put(
+        f"/api/files/{file_id}/raw",
+        content=pdf_bytes("Actual uploaded lecture."),
+        headers={**headers, "Content-Type": "application/pdf"},
+    ).status_code == 200
     done = client.post(f"/api/files/{file_id}/complete", json={"lecture_id": "lec-6"}, headers=headers)
-    assert done.json()["data"]["parse_status"] == "ready"
-    assert client.get(f"/api/files/{file_id}/status", headers=headers).json()["data"]["kb_status"] == "ready"
+    assert done.json()["mock"] is False
+    status = client.get(f"/api/files/{file_id}/status", headers=headers).json()["data"]
+    assert status["parse_status"] == status["kb_status"] == "parsed"
+    assert status["page_count"] == 1 and status["notes_ready"] is False
+    real_pages = client.get("/api/lectures/lec-6/pages", headers=headers).json()["data"]["pages"]
+    assert len(real_pages) == 1 and "Actual uploaded lecture" in real_pages[0]["text"]
 
 
 def test_quiz_attempt_and_mistakes(client, auth):
