@@ -243,3 +243,10 @@ def test_failed_primary_attempt_is_logged_even_when_backup_answers(client, auth,
     with SessionLocal() as session:
         rows = session.scalars(select(BadCase).where(BadCase.user_id == uid)).all()
         assert any("rate_limited" in row.actual_output for row in rows)
+
+
+def test_mock_quiz_handoff_describes_current_lecture_materials(client, auth, uid):
+    lecture = page(uid)
+    events = frames(client.post("/api/chat/stream", json={"message": "出几道题", "lecture_id": lecture}, headers=auth(uid)))
+    assert "（模拟）已转到练习线，下面是按这一讲资料出的模拟题。" in "".join(e.get("delta", "") for e in events)
+    assert next(e for e in events if e.get("type") == "handoff")["intent"] == "quiz"

@@ -117,7 +117,7 @@ function LegacyHandoff({ handoff, onPlanChange, active = true }: { handoff: Hand
     </> : question ? <><p className="aux">第 {questionIndex + 1} / {questions.length} 题</p><h3>{question.stem}</h3><div className="btns">{question.options.map((option, i) => {
       const key = typeof option === "string" ? String.fromCharCode(65 + i) : option.id || option.key || String.fromCharCode(65 + i);
       const text = typeof option === "string" ? option : option.text || option.label || key;
-      return <Button key={key} type="button" disabled={busy || Boolean(grade)} onClick={() => void attempt(key)}>{key} {text}</Button>;
+      return <Button key={key} className="option" type="button" disabled={busy || Boolean(grade)} onClick={() => void attempt(key)}>{key} {text}</Button>;
     })}</div>{grade && <><p role="status">做了就算完成。{grade.correct ? "这题答对了。" : "这题可以再看一眼。"}{grade.analysis}</p>{grade.label === "模拟" && <p className="badge sim">模拟判分</p>}{questionIndex + 1 < questions.length && <Button type="button" onClick={() => { setQuestionIndex(i => i + 1); setGrade(null); }}>下一题</Button>}</>}</> : <p>当前没有可用题目，请换一讲。</p>}
     {error && <p role="alert">{error}</p>}
   </Card>;
