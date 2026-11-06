@@ -1,0 +1,59 @@
+<!doctype html>
+<!-- 小满 V2 可点击原型（2026-11-06）。静态页面，不接后端，所有内容都是演示数据。
+     方案见 ../V2-方案.md；视觉沿用 design/approved-lake-blue/。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小满 V2 原型 · 从定目标到完成目标</title>
+<link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+<div class="app">
+  <aside class="rail" aria-label="目标与今天三件">
+    <div class="rail-brand"><strong>小满</strong><span class="proto-tag">V2 原型</span></div>
+
+    <section class="goal-box" id="goalBox" hidden>
+      <div class="goal-title" id="goalTitle"></div>
+      <div class="goal-meta" id="goalMeta"></div>
+      <div class="bar"><i id="goalBar"></i></div>
+      <div class="goal-meta" id="goalPhase"></div>
+    </section>
+
+    <div class="rail-title"><h2>今天三件</h2><span class="count" id="count">0 / 3</span></div>
+    <div class="seg" role="group" aria-label="今天的强度" id="seg">
+      <button type="button" data-v="light">轻松</button><button type="button" data-v="normal">正常</button><button type="button" data-v="sprint">冲刺</button>
+    </div>
+    <p class="rail-caption" id="caption">还没定目标</p>
+    <ol class="today-list" id="tasks"><li class="empty">定好目标后，这里会出现今天的三件事。</li></ol>
+
+    <section class="demo" aria-label="演示用">
+      <h2>演示用 <span class="badge sim">原型</span></h2>
+      <p class="aux" id="dayLabel">第 1 天</p>
+      <div class="demo-btns">
+        <button type="button" class="btn" id="dTomorrow">跳到明天</button>
+        <button type="button" class="btn" id="dStage">跳到阶段末</button>
+        <button type="button" class="btn" id="dUpload">交一份资料</button>
+        <button type="button" class="btn" id="dFinish">跳到最后</button>
+        <button type="button" class="btn" id="dReset">从头再来</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="chat">
+    <div class="companion" id="companion">
+      <img src="../../../web/public/xiaoman-lake-blue.png" alt="小满">
+      <h1>小满</h1><p>在这儿，陪你慢慢学</p>
+    </div>
+    <div class="stream" id="stream"></div>
+    <div class="quick" id="quick" aria-label="快捷回复"></div>
+    <form class="composer" id="composer">
+      <input id="input" placeholder="跟小满说，或把资料交给它…" aria-label="跟小满说一句" autocomplete="off">
+      <button type="submit" class="send" aria-label="发送">↑</button>
+    </form>
+    <p class="disclaimer">原型 · 不接后端 · 内容都是演示数据</p>
+  </main>
+</div>
+<script src="prototype.js"></script>
+</body>
+</html>
