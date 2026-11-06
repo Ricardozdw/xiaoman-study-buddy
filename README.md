@@ -4,6 +4,8 @@
 
 这是 6 人小组两周 MVP 的协作仓库。后端以开源项目 [Personal-Agent](https://github.com/hubooooooo/Personal-Agent)（MIT）为底座，不用 Dify；前端另建 React 项目。
 
+资料线已接通真实 PDF 上传、按页读取、AI 整理、出处核对、笔记编辑保存与重复文件复用。默认保存在本机；Supabase 私有桶适配已实现，需配置后启用。运行与接口说明见 [资料线说明](app/study/materials/README.md)。
+
 ## 先读这些
 
 | 文档 | 在线版（以它为准） | 仓库里的快照（2026-11-04） |

@@ -1,12 +1,14 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
-import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
+import { mockDashboard, mockPlan } from "../api/mocks";
+import type { Dashboard, Intensity, Permissions, PlanToday } from "../api/types";
 import { DashboardLine } from "../lines/dashboard/Placeholder";
 import { DashboardPanel, DashboardSummary } from "../lines/dashboard/Dashboard";
 import { fetchBoard, isDashboardRequest } from "../lines/dashboard/client";
 import { mergeDashboardTurns, type DashboardTurn } from "../lines/dashboard/conversation";
-import { MaterialsLine } from "../lines/materials/Placeholder";
+import { MaterialsLine, type MaterialsHandle } from "../lines/materials/Placeholder";
+import { NoteView, OriginalView } from "../lines/materials/NoteView";
+import { useMaterialsWorkspace } from "../lines/materials/useMaterialsWorkspace";
 import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
 import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Reference } from "../lines/qa";
@@ -28,9 +30,10 @@ const INTENSITY: { id: Intensity; label: string }[] = [
 export function Shell() {
   const [source, setSource] = useState<"loading" | "api" | "mock">("loading");
   const [plan, setPlan] = useState<PlanToday>(mockPlan);
-  const [board, setBoard] = useState<Dashboard>(mockDashboard);
-  const [note, setNote] = useState<NoteItem>(mockNotes[0]);
-  const [pageText, setPageText] = useState(mockNotes[0].content?.points?.join("\n") || "");
+  const [, setBoard] = useState<Dashboard>(mockDashboard);
+  const materials = useRef<MaterialsHandle>(null);
+  const [pageText, setPageText] = useState("");
+  const [pageLoading, setPageLoading] = useState(false);
   // 一开始对话流里不放卡片；各线接上真实业务后，由它们按“一次只出一张”往这里加。
   // 七种卡片的样子仍可用 cards/logic.ts 的 previewCards() 查看。
   const [cards, setCards] = useState<StudyCard[]>([]);
@@ -46,7 +49,10 @@ export function Shell() {
   const busy = qa.busy || dashboardBusy;
   const conversation = mergeDashboardTurns(qa.messages, dashboardTurns);
   useEffect(() => () => dashboardRequest.current?.abort(), []);
-  const effectiveLectureId = lectureId || qa.currentLectureId;
+  const workspace = useMaterialsWorkspace(lectureId, qa.currentLectureId, qa.sessionReady, setLectureId);
+  const effectiveLectureId = workspace.lectureId;
+  const materialsReady = qa.sessionReady && Boolean(effectiveLectureId);
+  const availableLectures = workspace.lectures || qa.lectures;
   const [sourceReference, setSourceReference] = useState<Reference | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
   const [rail, setRail] = useState(false);
@@ -111,29 +117,26 @@ export function Shell() {
   }, [font]);
 
   useEffect(() => {
+    setPageText("");
+    setPageLoading(qa.sessionReady && Boolean(effectiveLectureId));
     if (!qa.sessionReady) return;
     let cancelled = false;
     (async () => {
-      const [planRes, noteRes, boardRes, pageRes, permRes] = await Promise.all([
+      const [planRes, boardRes, pageRes, permRes] = await Promise.all([
         api<PlanToday>("/api/plan/today"),
-        api<{ items: NoteItem[] }>("/api/notes"),
         api<Dashboard>("/api/dashboard?range=week"),
         effectiveLectureId ? api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${encodeURIComponent(effectiveLectureId)}/pages`) : Promise.resolve({ source: "api" as const, envelope: { data: { pages: [] } } }),
         api<Permissions>("/api/me/permissions"),
       ]);
       if (cancelled) return;
-      const fromApi = [planRes, noteRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
+      const fromApi = [planRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
       setSource(fromApi ? "api" : "mock");
       setPlan(planRes.envelope.data);
-      const first = noteRes.envelope.data.items?.[0];
-      if (first) {
-        const detail = await api<NoteItem>(`/api/notes/${first.id}`);
-        if (!cancelled) setNote(detail.envelope.data.content ? detail.envelope.data : { ...detail.envelope.data, content: first.content });
-      }
       setBoard(boardRes.envelope.data);
       setPermissions(permRes.envelope.data);
       const pages = pageRes.envelope.data.pages || [];
       setPageText(pages.map((item) => `【第 ${item.page} 页】${item.text}`).join("\n\n"));
+      setPageLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -194,20 +197,15 @@ export function Shell() {
     }
   }
 
-  async function handIn() {
-    const created = await api<{ file_id: string }>("/api/files/upload-url", { method: "POST", body: JSON.stringify({ filename: "样例-第6讲.pdf" }) });
-    const fileId = created.envelope.data.file_id;
-    if (created.source === "api" && fileId) {
-      await api(`/api/files/${fileId}/raw`, { method: "PUT" });
-      await api(`/api/files/${fileId}/complete`, { method: "POST", body: JSON.stringify({ lecture_id: effectiveLectureId }) });
-    }
-    qa.addNotice("（模拟）资料先记下来了。真正按页抽文字还没做。");
-    setCards((list) => list.map((card) => (card.type === "progress" ? collapseCard(card) : card)));
+  async function refreshStudy() {
+    const [planRes, boardRes] = await Promise.all([api<PlanToday>("/api/plan/today"), api<Dashboard>("/api/dashboard?range=week"), workspace.refresh()]);
+    if (planRes.source === "api") setPlan(planRes.envelope.data);
+    if (boardRes.source === "api") setBoard(boardRes.envelope.data);
   }
 
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
-  const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已接上后端假数据" : "模拟内容";
+  const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
   const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
 
   return (
@@ -258,16 +256,16 @@ export function Shell() {
           </ol>
           <section className="rail-section">
             <h2>我的资料</h2>
+            {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
+            {!workspace.notes.length && <p className="aux">{qa.sessionReady ? "先交一份 PDF，整理好的笔记会放在这里。" : "正在读取学习笔记……"}</p>}
             <ul className="list-group">
-              {board.lectures.map((lecture) => (
-                <li key={lecture.id}>
-                  <button type="button" className="list-row" onClick={() => { setLectureId(lecture.id); setSourceReference(null); setTab("page"); }}>
-                    <span className="list-icon">
-                      <Icon name="file" />
-                    </span>
-                    <span className="grow">{lecture.title}</span>
-                    <span className="aux">掌握 {lecture.mastery}</span>
-                  </button>
+              {workspace.notes.map((item) => (
+                <li key={item.id}>
+                  <Button className="list-row" onClick={() => { workspace.openStored(item); setSourceReference(null); setTab("note"); setRail(false); }}>
+                    <span className="list-icon"><Icon name="file" /></span>
+                    <span className="grow">{item.title}</span>
+                    <span className="aux">第 {item.lecture_id.replace("lec-", "")} 讲</span>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -296,7 +294,10 @@ export function Shell() {
             </section>
           )}
         </aside>
-        <main className={compact ? "chat compact" : "chat"}>
+        <main className={compact ? "chat compact" : "chat"}
+          onDragOver={event => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}
+          onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); if (event.dataTransfer.files.length !== 1) materials.current?.rejectDrop(); else materials.current?.uploadFile(event.dataTransfer.files[0]); }}
+        >
           <div className="chat-top">
             <div className="chat-brand">
               <IconButton icon="menu" label="打开今天三件" onClick={() => setRail((open) => !open)} />
@@ -316,11 +317,11 @@ export function Shell() {
             </label>
             {/* 展开时“学习文档”在第二行；往下滑收起后并入顶栏这一行，不挡对话。 */}
             <span className="row-break" aria-hidden="true" />
-            <button type="button" className="floating-materials" onClick={() => setTab("note")} aria-label="打开学习文档">
+            <Button className="floating-materials" onClick={() => materials.current?.openNote()} aria-label="打开学习文档">
               <Icon name="book" />
               <span>学习文档</span>
               <Icon name="chevron" />
-            </button>
+            </Button>
           </div>
           <div className="companion" ref={companionRef}>
             <Avatar mood="wave" />
@@ -335,7 +336,7 @@ export function Shell() {
               </Bubble>
             ))}
             {conversation.map((entry, index) => entry.kind === "qa" ? (
-              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversation.length - 1} onPlanChange={setPlan} onReference={(reference) => { setSourceReference(reference); setTab("page"); }} />
+              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversation.length - 1} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
             ) : (
               <Fragment key={entry.turn.id}>
                 <Bubble role="user">{entry.turn.question}</Bubble>
@@ -345,6 +346,17 @@ export function Shell() {
               </Fragment>
             ))}
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
+            <MaterialsLine
+              ref={materials}
+              lectureId={effectiveLectureId}
+              enabled={materialsReady}
+              showIdle={false}
+              currentNote={workspace.note}
+              onOpenOriginal={pages => { workspace.showOriginal(pages); setSourceReference(null); setTab("page"); }}
+              onOpenNote={opened => { workspace.showNote(opened); setTab("note"); }}
+              onTextReady={() => { void refreshStudy(); }}
+              onReady={() => { void refreshStudy(); }}
+            />
             {cards.map((card) => (
               <StudyCardView
                 key={card.id}
@@ -362,7 +374,7 @@ export function Shell() {
               void send();
             }}
           >
-            <IconButton icon="plus" label="交资料" onClick={() => void handIn()} />
+            <IconButton icon="plus" label="交资料" disabled={!materialsReady} onClick={() => materials.current?.chooseFile()} />
             <input
               value={draft}
               maxLength={4000}
@@ -370,7 +382,7 @@ export function Shell() {
               placeholder="跟小满说，或把课件交给它…"
               aria-label="跟小满说一句"
             />
-            <LecturePicker value={lectureId} onChange={setLectureId} lectures={qa.lectures} currentLectureId={qa.currentLectureId} disabled={busy} />
+            <LecturePicker value={lectureId} onChange={setLectureId} lectures={availableLectures} currentLectureId={effectiveLectureId} disabled={busy} />
             {qa.busy && <Button onClick={qa.stop}>停止</Button>}
             <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy || !qa.sessionReady} />
           </form>
@@ -380,26 +392,25 @@ export function Shell() {
           <aside className="workbench">
             <header>
               <h2>{tab === "note" ? "学习文档" : tab === "page" ? "原文" : "看板"}</h2>
+              {tab === "page" && workspace.note && !sourceReference && <Button onClick={() => setTab("note")}>返回笔记</Button>}
               <Button onClick={() => setTab(null)} aria-label="关闭工作台">
                 关闭
               </Button>
             </header>
-            {tab === "note" && (
-              <div>
-                <p className="badge">{note.label}</p>
-                <h3>{note.title}</h3>
-                <ul>
-                  {(note.content?.points || []).map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {tab === "page" && (sourceReference ? <QaSourcePanel reference={sourceReference} /> : <pre className="page">{pageText}</pre>)}
+            {tab === "note" && (workspace.opening ? <p role="status">正在打开学习笔记……</p>
+              : workspace.error ? <p role="alert">{workspace.error}</p>
+                : workspace.note?.lecture_id === effectiveLectureId ? <NoteView key={workspace.note.id} note={workspace.note}
+                  onSaved={saved => { workspace.showNote(saved); void refreshStudy(); }}
+                  onCitation={citation => { setSourceReference(null); setTab("page"); void workspace.openCitation(citation); }} />
+                  : <p>这一讲还没有学习笔记，交一份 PDF 后会自动整理。</p>)}
+            {tab === "page" && (sourceReference ? <QaSourcePanel reference={sourceReference} />
+              : workspace.openingOriginal ? <p role="status">正在读取出处……</p>
+                : workspace.originalError ? <p role="alert">{workspace.originalError}</p>
+                  : !workspace.originalText && pageLoading ? <p role="status">正在读取当前讲原文……</p>
+                    : <OriginalView text={workspace.originalText || pageText || "这一讲还没有可用正文，请先交一份 PDF。"} citation={workspace.citation} />)}
             {tab === "board" && <DashboardPanel onUpdate={setBoard} />}
             <section className="lines">
               <h3>五条线的位置</h3>
-              <MaterialsLine />
               <PracticeLine />
               <PlanLine />
               <DashboardLine />

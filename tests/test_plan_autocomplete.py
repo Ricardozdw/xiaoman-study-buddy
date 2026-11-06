@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.materials_pdf_helpers import pdf_bytes
+
 
 @pytest.fixture
 def demo_on(monkeypatch):
@@ -23,10 +25,15 @@ def test_handing_in_the_lecture_ticks_learn_and_moves_progress(client, auth, dem
     plan = _plan(client, headers)
     learn = _task(plan, "learn")
     assert learn["title"] == "交第 7 讲课件" and learn["status"] == "todo"
-    # 资料线：上传并处理好第 7 讲
+    # 先真实上传、读取；计划线只接受整个资料流程完成后的 ready 信号。
     file_id = client.post("/api/files/upload-url", json={"filename": "第7讲.pdf"}, headers=headers).json()["data"]["file_id"]
-    client.put(f"/api/files/{file_id}/raw", headers=headers)
+    client.put(f"/api/files/{file_id}/raw", content=pdf_bytes("Lecture seven."), headers={**headers, "Content-Type": "application/pdf"})
     client.post(f"/api/files/{file_id}/complete", json={"lecture_id": "lec-7"}, headers=headers)
+    assert client.get(f"/api/files/{file_id}/status", headers=headers).json()["data"]["parse_status"] == "parsed"
+    assert _task(_plan(client, headers), "learn")["status"] == "todo"
+    # 隔离计划线的验收：模拟后续笔记生成完成，不把 parsed 当成 ready。
+    from app.study.common import store
+    store.complete_file("auto-upload", file_id, "lec-7")
     after = _plan(client, headers)
     assert after["auto_completed"] == [learn["id"]]
     assert _task(after, "learn")["status"] == "done"
