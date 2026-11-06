@@ -377,6 +377,7 @@ def _card_view(row: AgentAction) -> dict[str, Any]:
         "badge": meta.get("badge", returning.BADGE),
         "collapsed_text": meta.get("collapsed_text", ""),
         "decline_label": meta.get("decline_label", "先不用"),
+        "revise_label": meta.get("revise_label"),
         "options": [
             {key: value for key, value in option.items() if key != "effect"}
             for option in meta.get("options", [])
@@ -387,6 +388,13 @@ def _card_view(row: AgentAction) -> dict[str, Any]:
     }
 
 
+def _undo_view(row: Optional[AgentAction]) -> Optional[dict[str, Any]]:
+    if row is None:
+        return None
+    meta = _card_meta(row)
+    return {"id": row.id, "kind": meta.get("kind"), "text": meta.get("collapsed_text") or meta.get("title") or ""}
+
+
 def _pending_card(session, user_id: str, day: str) -> Optional[AgentAction]:
     rows = session.scalars(
         select(AgentAction)
@@ -395,6 +403,15 @@ def _pending_card(session, user_id: str, day: str) -> Optional[AgentAction]:
     ).all()
     cards = [row for row in rows if _card_meta(row).get("plan_line") and _card_meta(row).get("day") == day]
     return cards[-1] if cards else None
+
+
+def _undoable_card(session, user_id: str, day: str) -> Optional[AgentAction]:
+    """今天最近一张已生效、还能撤销的计划线卡片（刷新页面后也能找回“撤销”）。"""
+    rows = session.scalars(
+        select(AgentAction).where(AgentAction.user_id == user_id, AgentAction.status == "executed")
+    ).all()
+    cards = [row for row in rows if _card_meta(row).get("plan_line") and _card_meta(row).get("day") == day]
+    return max(cards, key=lambda row: (row.created_at or "", row.id)) if cards else None
 
 
 def is_plan_card(user_id: str, action_id: str) -> bool:
@@ -629,6 +646,7 @@ def plan_today(user_id: str) -> dict[str, Any]:
             "first_task_id": first,
             "all_done": all_done,
             "card": _card_view(card) if card is not None else None,
+            "undoable": _undo_view(_undoable_card(session, user_id, plan.day)),
             "done_card": done,
             "needs_setup": setup,
             "mood": "celebrate" if all_done else ("rest" if not items else "hello"),

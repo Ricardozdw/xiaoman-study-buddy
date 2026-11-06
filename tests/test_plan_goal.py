@@ -163,6 +163,7 @@ def test_draft_does_not_change_anything_until_ok(client, auth):
     assert card["defaults_used"] == []
     after = _plan(client, headers)
     assert after["card"]["id"] == card["id"]
+    assert after["card"]["revise_label"] == "说说怎么改"
     assert [t["id"] for t in after["tasks"]] == [t["id"] for t in before["tasks"]]  # 没点“好”，左栏不变
     assert client.get("/api/goals/current", headers=headers).json()["data"]["needs_setup"] is True
 

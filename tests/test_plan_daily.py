@@ -136,3 +136,15 @@ def test_quick_replies_endpoint(client, auth):
     items = client.get("/api/plan/quick-replies", headers=headers).json()["data"]["items"]
     texts = [i["text"] for i in items]
     assert texts[0].startswith("开始：") and "今天只有 15 分钟" in texts and "今天想多学点" in texts
+
+
+def test_undoable_survives_reload(client, auth):
+    headers = auth("daily-undoable")
+    _plan(client, headers)
+    card = client.post("/api/plan/adjust", json={"text": "今天只有15分钟"}, headers=headers).json()["data"]["card"]
+    assert _plan(client, headers)["undoable"] is None
+    client.post(f"/api/suggestions/{card['id']}/accept", headers=headers)
+    undoable = _plan(client, headers)["undoable"]
+    assert undoable == {"id": card["id"], "kind": "adjust_intensity", "text": "今天按轻松来"}
+    client.post(f"/api/actions/{card['id']}/undo", headers=headers)
+    assert _plan(client, headers)["undoable"] is None
