@@ -1,0 +1,132 @@
+[
+  {
+    "title": "PMP",
+    "goal_type": "exam",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "教资",
+    "goal_type": "exam",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "软考",
+    "goal_type": "exam",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "CPA",
+    "goal_type": "exam",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "一门网课",
+    "goal_type": "course",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "一本书",
+    "goal_type": "course",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "Excel",
+    "goal_type": "skill",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "Python",
+    "goal_type": "skill",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "英语口语",
+    "goal_type": "skill",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  },
+  {
+    "title": "考研数学",
+    "goal_type": "exam",
+    "deadline": null,
+    "daily_minutes": 30,
+    "progress": "还没开始",
+    "checks": [
+      "单元数在4–12",
+      "每单元3–6要点",
+      "没有日期、金额、页码",
+      "单元名不重复"
+    ]
+  }
+]
