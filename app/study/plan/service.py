@@ -752,7 +752,7 @@ def plan_today(user_id: str) -> dict[str, Any]:
                 all_done=all_done,
                 has_tasks=bool(items),
             ),
-            "label": "模拟",
+            "label": "模拟" if setup else "",
         }
 
 

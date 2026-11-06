@@ -379,3 +379,8 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .chat.compact .companion .avatar { width: 36px; height: 36px; }
 /* 窄屏顶栏已有“☰ 小满”，滑动后直接收起大头像 */
 @media (max-width: 850px) { .chat.compact { padding-top: 61px; } .chat.compact .companion { display: none; } }
+
+/* 今天三件：还没定目标时的空状态；“交第 N 讲课件”下面的交资料按钮（A，11-06） */
+.rail-empty { display: grid; gap: 12px; padding: 16px; border: 1px dashed var(--xm-card-border); border-radius: var(--xm-radius-task); color: var(--t2); font-size: 14px; }
+.rail-empty p { margin: 0; line-height: 1.6; }
+.today-list .task-action { margin: 6px 0 0 auto; display: flex; }

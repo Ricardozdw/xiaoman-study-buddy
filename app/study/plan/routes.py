@@ -107,7 +107,9 @@ def goal_revise(action_id: str, body: ReviseBody, user_id: str = Depends(require
 
 @router.get("/api/plan/today")
 def today(user_id: str = Depends(require_user)):
-    return pack(service.plan_today(user_id))
+    data = service.plan_today(user_id)
+    # 定了真实目标（拆解卡点过“好”）以后，今天三件按用户自己的目标排，不再标“模拟”。
+    return pack(data, mock=bool(data["needs_setup"]))
 
 
 @router.patch("/api/plan/today")

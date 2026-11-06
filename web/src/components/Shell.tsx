@@ -27,6 +27,9 @@ const INTENSITY: { id: Intensity; label: string }[] = [
   { id: "sprint", label: "冲刺" },
 ];
 
+// 开发模式（地址加 ?dev=1）：显示“五条线的位置”面板和演示日期开关，正式页面不显示。
+const DEV = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev");
+
 export function Shell() {
   const [source, setSource] = useState<"loading" | "api" | "mock">("loading");
   const [plan, setPlan] = useState<PlanToday>(mockPlan);
@@ -53,6 +56,12 @@ export function Shell() {
   const effectiveLectureId = workspace.lectureId;
   const materialsReady = qa.sessionReady && Boolean(effectiveLectureId);
   const availableLectures = workspace.lectures || qa.lectures;
+  // 交资料默认交到计划里下一个要交的那一讲（“交第 N 讲课件”），用户用 @ 选了讲次时以选的为准。
+  // 开始上传时把讲次钉住，免得交完自动勾掉任务后，卡片跟着跳到下一讲。
+  const [pinnedUpload, setPinnedUpload] = useState("");
+  const planUploadLecture = plan.tasks.find((task) => task.status === "todo" && task.kind === "learn" && task.ref?.source === "upload")?.ref?.lecture_id || "";
+  const uploadLectureId = lectureId || pinnedUpload || planUploadLecture || effectiveLectureId;
+  const needsGoal = source === "api" && plan.needs_setup === true;
   const [sourceReference, setSourceReference] = useState<Reference | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
   const [rail, setRail] = useState(false);
@@ -220,7 +229,7 @@ export function Shell() {
           <div className="rail-title">
             <h2>今天三件</h2>
             <span className="count">
-              {doneCount} / {plan.tasks.length}
+              {needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
             </span>
           </div>
           <div className="seg" role="group" aria-label="今天的强度">
@@ -231,8 +240,16 @@ export function Shell() {
             ))}
           </div>
           <p className="rail-caption">
-            约 {plan.minutes} 分钟 · {plan.label}
+            约 {plan.minutes} 分钟{plan.label ? ` · ${plan.label}` : ""}
           </p>
+          {needsGoal ? (
+            <div className="rail-empty">
+              <p>先定个学习目标，我帮你拆成每天三件。</p>
+              <Button variant="primary" onClick={() => { setRail(false); document.querySelector('[aria-label="计划线"]')?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
+                定目标
+              </Button>
+            </div>
+          ) : (
           <ol className="today-list">
             {plan.tasks.map((task) => {
               const done = task.status === "done";
@@ -250,10 +267,16 @@ export function Shell() {
                       {done && <Icon name="check" />}
                     </span>
                   </button>
+                  {!done && task.kind === "learn" && task.ref?.source === "upload" && task.ref.lecture_id && (
+                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setPinnedUpload(task.ref!.lecture_id!); materials.current?.chooseFile(); }}>
+                      交资料
+                    </Button>
+                  )}
                 </li>
               );
             })}
           </ol>
+          )}
           <section className="rail-section">
             <h2>我的资料</h2>
             {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
@@ -296,7 +319,7 @@ export function Shell() {
         </aside>
         <main className={compact ? "chat compact" : "chat"}
           onDragOver={event => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}
-          onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); if (event.dataTransfer.files.length !== 1) materials.current?.rejectDrop(); else materials.current?.uploadFile(event.dataTransfer.files[0]); }}
+          onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); if (event.dataTransfer.files.length !== 1) materials.current?.rejectDrop(); else { setPinnedUpload(uploadLectureId); materials.current?.uploadFile(event.dataTransfer.files[0]); } }}
         >
           <div className="chat-top">
             <div className="chat-brand">
@@ -330,7 +353,8 @@ export function Shell() {
           </div>
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
-            {bubbles.map((bubble, index) => (
+            {source === "api" && <PlanLine inChat showDemo={DEV} />}
+            {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}
               </Bubble>
@@ -348,7 +372,7 @@ export function Shell() {
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
             <MaterialsLine
               ref={materials}
-              lectureId={effectiveLectureId}
+              lectureId={uploadLectureId}
               enabled={materialsReady}
               showIdle={false}
               currentNote={workspace.note}
@@ -374,7 +398,7 @@ export function Shell() {
               void send();
             }}
           >
-            <IconButton icon="plus" label="交资料" disabled={!materialsReady} onClick={() => materials.current?.chooseFile()} />
+            <IconButton icon="plus" label="交资料" disabled={!materialsReady} onClick={() => { setPinnedUpload(uploadLectureId); materials.current?.chooseFile(); }} />
             <input
               value={draft}
               maxLength={4000}
@@ -409,12 +433,11 @@ export function Shell() {
                   : !workspace.originalText && pageLoading ? <p role="status">正在读取当前讲原文……</p>
                     : <OriginalView text={workspace.originalText || pageText || "这一讲还没有可用正文，请先交一份 PDF。"} citation={workspace.citation} />)}
             {tab === "board" && <DashboardPanel onUpdate={setBoard} />}
-            <section className="lines">
+            {DEV && <section className="lines">
               <h3>五条线的位置</h3>
               <PracticeLine />
-              <PlanLine />
               <DashboardLine />
-            </section>
+            </section>}
           </aside>
         )}
       </div>
