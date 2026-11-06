@@ -1,0 +1,47 @@
+/* 湖泊蓝视觉层。沿用已确认的界面结构，只覆盖本轮颜色与视觉层次。 */
+:root{
+  --brand:#5b9fb6;
+  --primary:#306b80;
+  --bubble-user:#e1eff3;
+  --bubble-assistant:#f0f1f3;
+  --rail:#f5f6f8;
+  --selected:#e6f0f3;
+  --ink:#2c3439;
+  --muted:#696f78;
+  --accent:var(--brand);
+  --accent-ink:#ffffff;
+  --accent-soft:var(--bubble-user);
+  --secondary:var(--muted);
+  color:var(--ink);
+}
+.screen{background:#fff}
+.screen:before{background:var(--rail);border-color:#e7ebef}
+.brand strong,.rail h2,.companion h1{color:var(--ink)}
+.circle-control{color:#66727c;box-shadow:0 3px 16px #2b445008,0 0 0 1px #e8edf180}
+.intensity{background:#e9edf1}
+.intensity>span{color:var(--muted)}
+.intensity .chosen{color:var(--primary);box-shadow:0 2px 8px #2846510b}
+.today-list .current{background:var(--selected);box-shadow:inset 0 0 0 1px #d5e6ed}
+.current .task-mark{border-color:#3b7e95}
+.current .task-mark>span{background:#3b7e95}
+.current h3{color:#304e5d}
+.current .kind{color:#4b6d7d}
+.done .task-mark{background:#e0e5e9;border-color:#e0e5e9;color:#66717a}
+.avatar-wrap{filter:drop-shadow(0 6px 7px #35596a09)}
+.avatar-edit{color:#6b7883;box-shadow:0 2px 8px #2946520c}
+.companion>p,.date,.rail-caption,.rail-title>span,.today-list p,.material,.rail-footer,.done h3,.today-list li:not(.current) .kind,.citation,.mock-label{color:var(--muted)}
+.message.user{color:#2f4651;background:var(--bubble-user)}
+.message.assistant{color:#30383e;background:var(--bubble-assistant)}
+.practice-card{border-color:#e6ebef;box-shadow:0 5px 22px #29465308}
+.practice-top,.practice-card>p,.disclaimer{color:var(--muted)}
+.book-icon{background:#e7f1f4;color:#46788b}
+.practice-card h2{color:var(--ink)}
+.secondary-action{color:#606b74;background:#f0f2f4}
+.primary-action{color:#fff;background:var(--primary);box-shadow:0 2px 5px #306b8014;font-weight:550}
+.composer{border-color:#e3eaee;box-shadow:0 8px 30px #335d7013,0 1px 3px #27485406}
+.add{color:#6c7b87}
+.placeholder{color:var(--muted)}
+.lecture{background:#edf4f6;color:#4c6e7d}
+.send{color:#fff;background:var(--primary)}
+.floating-materials{border-color:#e7ecef;color:#62737f;box-shadow:0 4px 20px #355e6e08}
+.me{background:#e6ebef;color:#626f7a}

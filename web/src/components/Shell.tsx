@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ensureSession, readStream } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
@@ -8,10 +8,10 @@ import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
 import { QaLine } from "../lines/qa/Placeholder";
 import { Avatar } from "./Avatar";
-import { collapseCard, previewCards, reopenCard, type StudyCard } from "./cards/logic";
+import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
+import { Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
-type Theme = "system" | "light" | "dark";
 type FontSize = "sm" | "md" | "lg";
 type Tab = "note" | "page" | "board";
 type Bubble = { id: string; role: "user" | "xiaoman"; text: string };
@@ -28,23 +28,76 @@ export function Shell() {
   const [board, setBoard] = useState<Dashboard>(mockDashboard);
   const [note, setNote] = useState<NoteItem>(mockNotes[0]);
   const [pageText, setPageText] = useState(mockNotes[0].content?.points?.join("\n") || "");
-  const [cards, setCards] = useState<StudyCard[]>(previewCards);
+  // 一开始对话流里不放卡片；各线接上真实业务后，由它们按“一次只出一张”往这里加。
+  // 七种卡片的样子仍可用 cards/logic.ts 的 previewCards() 查看。
+  const [cards, setCards] = useState<StudyCard[]>([]);
   const [bubbles, setBubbles] = useState<Bubble[]>([
-    { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边。下面这七张卡是地基预览，正式使用时一次只请你做一个决定。" },
+    { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边，想从哪件开始都行；有不懂的，直接问我。" },
   ]);
   const [draft, setDraft] = useState("");
   const [lectureId, setLectureId] = useState("lec-6");
   const [tab, setTab] = useState<Tab | null>(null);
   const [rail, setRail] = useState(false);
-  const [theme, setTheme] = useState<Theme>("system");
   const [font, setFont] = useState<FontSize>("md");
   const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
+  // 往下滑时小满缩成顶部小头像，给对话腾出地方。
+  const [compact, setCompact] = useState(false);
+  const streamRef = useRef<HTMLDivElement>(null);
 
+  const companionRef = useRef<HTMLDivElement>(null);
+  // 收起 / 展开时，头像从原来的位置平滑移到新位置（先记下旧位置，渲染后再补一段动画）。
+  const avatarFrom = useRef<DOMRect | null>(null);
+
+  function changeCompact(next: boolean) {
+    avatarFrom.current = companionRef.current?.querySelector(".avatar")?.getBoundingClientRect() ?? null;
+    setCompact(next);
+  }
+
+  useLayoutEffect(() => {
+    const avatar = companionRef.current?.querySelector<HTMLElement>(".avatar");
+    const from = avatarFrom.current;
+    avatarFrom.current = null;
+    if (!avatar || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = avatar.getBoundingClientRect();
+    if (!to.width) return;
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    const scale = from.width / to.width;
+    avatar.animate(
+      [{ transformOrigin: "top left", transform: `translate(${dx}px, ${dy}px) scale(${scale})` }, { transformOrigin: "top left", transform: "none" }],
+      { duration: 240, easing: "cubic-bezier(.2,.7,.2,1)" },
+    );
+  }, [compact]);
+
+  function onStreamScroll() {
+    const el = streamRef.current;
+    if (!el) return;
+    if (!compact) {
+      // 收起后对话区会变高；只有收起后仍然需要滚动时才收起，否则会在“收起—展开”之间来回跳。
+      const gain = companionRef.current?.offsetHeight ?? 0;
+      const stillScrolls = el.scrollHeight - el.clientHeight - gain > 48;
+      if (el.scrollTop > 24 && stillScrolls) changeCompact(true);
+    } else if (el.scrollTop < 8) {
+      changeCompact(false);
+    }
+  }
+
+  // 有新消息时滚到最底下；小满的回复边生成边变长时，只要用户本来就在底部附近，也跟着滚。
+  const lastCount = useRef(0);
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    const el = streamRef.current;
+    if (!el) return;
+    const count = bubbles.length + cards.length;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (count !== lastCount.current || nearBottom) el.scrollTop = el.scrollHeight;
+    lastCount.current = count;
+  }, [bubbles, cards.length]);
+
+  // 暗色模式暂不做（以后作为换肤加回来），这里只管字号。
+  useEffect(() => {
     document.documentElement.dataset.font = font;
-  }, [theme, font]);
+  }, [font]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,103 +188,134 @@ export function Shell() {
     setCards((list) => list.map((card) => (card.type === "progress" ? collapseCard(card) : card)));
   }
 
+  const doneCount = plan.tasks.filter((task) => task.status === "done").length;
+  const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
+  const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已接上后端假数据" : "模拟内容";
+  const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
+
   return (
     <div className="app">
-      <header className="top">
-        <button type="button" className="btn" onClick={() => setRail((open) => !open)}>
-          今天
-        </button>
-        <Avatar mood="wave" />
-        <div>
-          <strong>小满</strong>
-          <p className="aux">{source === "loading" ? "正在连接" : source === "api" ? "已接上后端假数据" : "后端没接上，用的是本地假数据"}</p>
-        </div>
-        <div className="grow" />
-        <label className="aux">
-          字号
-          <select value={font} onChange={(event) => setFont(event.target.value as FontSize)}>
-            <option value="sm">标准</option>
-            <option value="md">大</option>
-            <option value="lg">更大</option>
-          </select>
-        </label>
-        <label className="aux">
-          主题
-          <select value={theme} onChange={(event) => setTheme(event.target.value as Theme)}>
-            <option value="system">跟随系统</option>
-            <option value="light">浅色</option>
-            <option value="dark">深色</option>
-          </select>
-        </label>
-      </header>
       <div className={rail ? "shell rail-open" : "shell"}>
-        <aside className="rail">
-          <h2>今天 · 最多三件</h2>
+        <aside className="rail" aria-label="今天三件与资料">
+          <div className="rail-brand">
+            <Icon name="menu" />
+            <strong>小满</strong>
+            <IconButton className="rail-close" icon="close" label="收起今天三件" onClick={() => setRail(false)} />
+          </div>
+          <div className="rail-title">
+            <h2>今天三件</h2>
+            <span className="count">
+              {doneCount} / {plan.tasks.length}
+            </span>
+          </div>
           <div className="seg" role="group" aria-label="今天的强度">
             {INTENSITY.map((item) => (
-              <button key={item.id} type="button" className={plan.intensity === item.id ? "btn primary" : "btn"} onClick={() => changeIntensity(item.id)}>
+              <button key={item.id} type="button" aria-pressed={plan.intensity === item.id} onClick={() => changeIntensity(item.id)}>
                 {item.label}
               </button>
             ))}
           </div>
-          <p className="aux">约 {plan.minutes} 分钟 · {plan.label}</p>
-          <ul className="tasks">
-            {plan.tasks.map((task) => (
-              <li key={task.id}>
-                <button type="button" className="task" onClick={() => toggleTask(task.id, task.status)}>
-                  <span className={task.status === "done" ? "box on" : "box"} aria-hidden="true" />
-                  <span>
-                    <b>{task.kind_label}</b> {task.title}
-                    {task.minutes ? <span className="aux"> 约 {task.minutes} 分钟</span> : null}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <h2>我的资料</h2>
-          <ul className="tasks">
-            {board.lectures.map((lecture) => (
-              <li key={lecture.id}>
-                <button type="button" className="task" onClick={() => { setLectureId(lecture.id); setTab("page"); }}>
-                  <span>{lecture.title}</span>
-                  <span className="aux">掌握 {lecture.mastery}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="btn" onClick={() => setTab("note")}>
-            打开学习文档
-          </button>
+          <p className="rail-caption">
+            约 {plan.minutes} 分钟 · {plan.label}
+          </p>
+          <ol className="today-list">
+            {plan.tasks.map((task) => {
+              const done = task.status === "done";
+              const state = done ? "done" : task.id === currentId ? "current" : "";
+              return (
+                <li key={task.id}>
+                  <button type="button" className={`task-card ${state}`} aria-pressed={done} onClick={() => toggleTask(task.id, task.status)}>
+                    <TaskArt kind={task.kind} />
+                    <span className="task-copy">
+                      <span className="kind">{task.kind_label}</span>
+                      <strong>{task.title}</strong>
+                      <span className="meta">{done ? "已完成" : task.minutes ? `约 ${task.minutes} 分钟` : task.done_when}</span>
+                    </span>
+                    <span className="task-mark" aria-hidden="true">
+                      {done && <Icon name="check" />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <section className="rail-section">
+            <h2>我的资料</h2>
+            <ul className="list-group">
+              {board.lectures.map((lecture) => (
+                <li key={lecture.id}>
+                  <button type="button" className="list-row" onClick={() => { setLectureId(lecture.id); setTab("page"); }}>
+                    <span className="list-icon">
+                      <Icon name="file" />
+                    </span>
+                    <span className="grow">{lecture.title}</span>
+                    <span className="aux">掌握 {lecture.mastery}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
           {permissions && (
-            <section>
+            <section className="rail-section">
               <h2>授权</h2>
               <p className="aux">{permissions.chosen ? "已选过" : permissions.note}</p>
-              {permissions.switches.map((item) => (
-                <label key={item.key} className="task">
-                  <input
-                    type="checkbox"
-                    checked={item.value === true}
-                    onChange={() => {
-                      const next = Object.fromEntries(permissions.switches.map((row) => [row.key, row.key === item.key ? row.value !== true : row.value === true]));
-                      void api<Permissions>("/api/me/permissions", { method: "PATCH", body: JSON.stringify({ permissions: next }) }).then((result) => {
-                        setPermissions(result.envelope.data);
-                      });
-                    }}
-                  />
-                  <span>{item.label}</span>
-                </label>
-              ))}
+              <div className="list-group">
+                {permissions.switches.map((item) => (
+                  <label key={item.key} className="list-row">
+                    <input
+                      type="checkbox"
+                      checked={item.value === true}
+                      onChange={() => {
+                        const next = Object.fromEntries(permissions.switches.map((row) => [row.key, row.key === item.key ? row.value !== true : row.value === true]));
+                        void api<Permissions>("/api/me/permissions", { method: "PATCH", body: JSON.stringify({ permissions: next }) }).then((result) => {
+                          setPermissions(result.envelope.data);
+                        });
+                      }}
+                    />
+                    <span className="grow">{item.label}</span>
+                  </label>
+                ))}
+              </div>
             </section>
           )}
         </aside>
-        <main className="chat">
-          <div className="stream">
+        <main className={compact ? "chat compact" : "chat"}>
+          <div className="chat-top">
+            <div className="chat-brand">
+              <IconButton icon="menu" label="打开今天三件" onClick={() => setRail((open) => !open)} />
+              <strong>小满</strong>
+            </div>
+            <div className="grow" />
+            <span className="source-label" title={sourceTitle}>
+              {sourceText}
+            </span>
+            <label className="pill-select">
+              字号
+              <select value={font} onChange={(event) => setFont(event.target.value as FontSize)}>
+                <option value="sm">标准</option>
+                <option value="md">大</option>
+                <option value="lg">更大</option>
+              </select>
+            </label>
+            {/* 展开时“学习文档”在第二行；往下滑收起后并入顶栏这一行，不挡对话。 */}
+            <span className="row-break" aria-hidden="true" />
+            <button type="button" className="floating-materials" onClick={() => setTab("note")} aria-label="打开学习文档">
+              <Icon name="book" />
+              <span>学习文档</span>
+              <Icon name="chevron" />
+            </button>
+          </div>
+          <div className="companion" ref={companionRef}>
+            <Avatar mood="wave" />
+            <h1>小满</h1>
+            <p>在这儿，陪你慢慢学</p>
+          </div>
+          <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
-            {bubbles.map((bubble) => (
-              <div key={bubble.id} className={bubble.role === "user" ? "bubble user" : "bubble"}>
-                {bubble.role === "xiaoman" && <Avatar />}
-                <p>{bubble.text}</p>
-              </div>
+            {bubbles.map((bubble, index) => (
+              <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
+                {bubble.text}
+              </Bubble>
             ))}
             {cards.map((card) => (
               <StudyCardView
@@ -250,33 +334,30 @@ export function Shell() {
               void send();
             }}
           >
-            <button type="button" className="btn" onClick={() => void handIn()}>
-              ＋ 交资料
-            </button>
-            <label className="aux">
-              @
-              <select value={lectureId} onChange={(event) => setLectureId(event.target.value)}>
-                <option value="lec-6">第 6 讲</option>
-              </select>
-            </label>
+            <IconButton icon="plus" label="交资料" onClick={() => void handIn()} />
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="跟小满说一句"
+              placeholder="跟小满说，或把课件交给它…"
               aria-label="跟小满说一句"
             />
-            <button type="submit" className="btn primary" disabled={busy}>
-              发送
-            </button>
+            <label className="lecture-pill">
+              @
+              <select value={lectureId} onChange={(event) => setLectureId(event.target.value)} aria-label="这句话说的是哪一讲">
+                <option value="lec-6">第 6 讲</option>
+              </select>
+            </label>
+            <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy} />
           </form>
+          <p className="disclaimer">AI 整理，可以改 · 重要内容请对照原文</p>
         </main>
         {tab && (
           <aside className="workbench">
             <header>
               <h2>{tab === "note" ? "学习文档" : tab === "page" ? "原文" : "看板"}</h2>
-              <button type="button" className="btn" onClick={() => setTab(null)} aria-label="关闭工作台">
+              <Button onClick={() => setTab(null)} aria-label="关闭工作台">
                 关闭
-              </button>
+              </Button>
             </header>
             {tab === "note" && (
               <div>
