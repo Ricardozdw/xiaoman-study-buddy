@@ -1,0 +1,41 @@
+# 仅供 A 手动创建。磁盘需要付费方案；本 PR 不创建、不部署、不产生费用。
+services:
+  - type: web
+    name: xiaoman-study-buddy
+    runtime: docker
+    dockerfilePath: ./deploy/xiaoman/Dockerfile
+    dockerContext: .
+    plan: starter
+    autoDeploy: false
+    healthCheckPath: /health
+    disk:
+      name: xiaoman-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: HARNESS_ID_HMAC_KEY
+        generateValue: true
+      - key: XIAOMAN_MVP
+        value: "1"
+      - key: XIAOMAN_DEMO_CLOCK
+        value: "0"
+      - key: PROACTIVE_ENABLED
+        value: "0"
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+      - key: DATA_DIR
+        value: /app/data
+      - key: DATABASE_URL
+        sync: false
+      - key: SYSTEM_DATABASE_URL
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: LLM_CONFIG_JSON
+        sync: false
+      - key: FEISHU_ENABLED
+        value: "0"
+      - key: OPENCLAW_WECHAT_ENABLED
+        value: "0"

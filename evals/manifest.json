@@ -1,0 +1,11 @@
+{
+  "required": {
+    "materials": {"minimum_cases": 1, "pass_rate": 1.0},
+    "qa_citation": {"minimum_cases": 30, "pass_rate": 0.95},
+    "qa_absent": {"minimum_cases": 20, "pass_rate": 1.0},
+    "practice": {"minimum_cases": 20, "pass_rate": 0.95},
+    "plan": {"minimum_cases": 1, "pass_rate": 1.0},
+    "dashboard": {"minimum_cases": 8, "pass_rate": 1.0}
+  },
+  "note": "评测线按当前 PRD。其他线交付用例前显示缺失，不能用样例替代各线的验收。"
+}

@@ -1,0 +1,23 @@
+{
+  "models": {
+    "study-primary": {
+      "model": "deepseek-flash",
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "price_input": 2,
+      "price_output": 8,
+      "currency": "CNY",
+      "params": {"thinking": {"type": "disabled"}}
+    },
+    "study-backup": {
+      "model": "deepseek-v4-pro",
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "price_input": 9,
+      "price_output": 27,
+      "currency": "CNY",
+      "params": {"thinking": {"type": "disabled"}}
+    }
+  },
+  "tiers": {"fast": ["study-primary", "study-backup"], "strong": ["study-primary", "study-backup"]}
+}

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.study.common import store
 from app.study.common.capability import run_example
-from app.study.common.http import pack
+from app.study.common.http import missing, pack
+from app.study.dashboard.service import snapshot, summary_card
+from app.study.dashboard.telemetry import capture_feedback, usage_summary
 
 router = APIRouter(tags=["看板"])
 
@@ -20,8 +24,29 @@ class ExampleBody(BaseModel):
 
 
 @router.get("/api/dashboard")
-def dashboard(range: str = Query("week"), user_id: str = Depends(require_user)):
-    return pack(store.dashboard(user_id, range))
+def dashboard(range: Literal["week"] = Query("week"), user_id: str = Depends(require_user)):
+    data = snapshot(user_id)
+    return pack(data, mock=data["mock"])
+
+
+@router.get("/api/dashboard/summary")
+def dashboard_summary(user_id: str = Depends(require_user)):
+    data = snapshot(user_id)
+    return pack({"card": summary_card(data), "dashboard": data}, mock=data["mock"])
+
+
+class FeedbackBody(BaseModel):
+    target_type: Literal["message", "question"]
+    target_id: str = Field(min_length=1, max_length=200)
+    reason: str = Field(default="", max_length=1000)
+
+
+@router.post("/api/study/feedback")
+def study_feedback(body: FeedbackBody, user_id: str = Depends(require_user)):
+    case_id = capture_feedback(user_id, **body.model_dump())
+    if case_id is None:
+        missing()
+    return pack({"bad_case_id": case_id}, mock=False)
 
 
 @router.post("/api/study/example")
@@ -34,9 +59,9 @@ def example(body: ExampleBody, user_id: str = Depends(require_user)):
 
 @router.get("/api/study/usage")
 def usage(user_id: str = Depends(require_user)):
-    return pack(store.usage_for(user_id))
+    return pack(usage_summary(user_id), mock=False)
 
 
 @router.get("/api/study/bad-cases")
 def bad_cases(user_id: str = Depends(require_user)):
-    return pack(store.bad_cases_for(user_id))
+    return pack(store.bad_cases_for(user_id), mock=False)

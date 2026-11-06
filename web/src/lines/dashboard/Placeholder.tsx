@@ -1,3 +1,3 @@
 export function DashboardLine() {
-  return <p className="line-placeholder">看板线从这里开始：这周学了什么、用量和 bad case。</p>;
+  return <p className="line-placeholder">看板已接入学习记录。做题或完成任务后，打开看板即可查看。</p>;
 }
