@@ -51,6 +51,15 @@ export function Shell() {
   const dashboardRequest = useRef<AbortController | null>(null);
   const busy = qa.busy || dashboardBusy;
   const conversation = mergeDashboardTurns(qa.messages, dashboardTurns);
+  // 只记本次会话实际选择 / 拖入文件的时刻；保持同一 keyed 节点，移动时不重启上传。
+  const [uploadAfter, setUploadAfter] = useState<{ qa: number; dashboard: number } | null>(null);
+  const uploadPosition = uploadAfter ? Math.min(uploadAfter.qa + uploadAfter.dashboard, conversation.length) : conversation.length;
+  const conversationWithMaterials = [
+    ...conversation.slice(0, uploadPosition),
+    { kind: "materials" as const },
+    ...conversation.slice(uploadPosition),
+  ];
+  function markUpload() { setUploadAfter({ qa: qa.messages.length, dashboard: dashboardTurns.length }); }
   useEffect(() => () => dashboardRequest.current?.abort(), []);
   const workspace = useMaterialsWorkspace(lectureId, qa.currentLectureId, qa.sessionReady, setLectureId);
   const effectiveLectureId = workspace.lectureId;
@@ -319,7 +328,7 @@ export function Shell() {
         </aside>
         <main className={compact ? "chat compact" : "chat"}
           onDragOver={event => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}
-          onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); if (event.dataTransfer.files.length !== 1) materials.current?.rejectDrop(); else { setPinnedUpload(uploadLectureId); materials.current?.uploadFile(event.dataTransfer.files[0]); } }}
+          onDrop={event => { if (!event.dataTransfer.files.length) return; event.preventDefault(); if (event.dataTransfer.files.length !== 1) materials.current?.rejectDrop(); else { markUpload(); setPinnedUpload(uploadLectureId); materials.current?.uploadFile(event.dataTransfer.files[0]); } }}
         >
           <div className="chat-top">
             <div className="chat-brand">
@@ -359,8 +368,25 @@ export function Shell() {
                 {bubble.text}
               </Bubble>
             ))}
-            {conversation.map((entry, index) => entry.kind === "qa" ? (
-              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversation.length - 1} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+            {conversationWithMaterials.map((entry, index) => entry.kind === "materials" ? (
+              <div key="materials" hidden={!uploadAfter} onChangeCapture={event => {
+                const target = event.target;
+                if (target instanceof HTMLInputElement && target.type === "file" && target.files?.length) markUpload();
+              }}>
+                <MaterialsLine
+                  ref={materials}
+                  lectureId={uploadLectureId}
+                  enabled={materialsReady}
+                  showIdle={false}
+                  currentNote={workspace.note}
+                  onOpenOriginal={pages => { workspace.showOriginal(pages); setSourceReference(null); setTab("page"); }}
+                  onOpenNote={opened => { workspace.showNote(opened); setTab("note"); }}
+                  onTextReady={() => { void refreshStudy(); }}
+                  onReady={() => { void refreshStudy(); }}
+                />
+              </div>
+            ) : entry.kind === "qa" ? (
+              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
             ) : (
               <Fragment key={entry.turn.id}>
                 <Bubble role="user">{entry.turn.question}</Bubble>
@@ -370,17 +396,6 @@ export function Shell() {
               </Fragment>
             ))}
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
-            <MaterialsLine
-              ref={materials}
-              lectureId={uploadLectureId}
-              enabled={materialsReady}
-              showIdle={false}
-              currentNote={workspace.note}
-              onOpenOriginal={pages => { workspace.showOriginal(pages); setSourceReference(null); setTab("page"); }}
-              onOpenNote={opened => { workspace.showNote(opened); setTab("note"); }}
-              onTextReady={() => { void refreshStudy(); }}
-              onReady={() => { void refreshStudy(); }}
-            />
             {cards.map((card) => (
               <StudyCardView
                 key={card.id}

@@ -184,7 +184,7 @@ def _conversation_events(user_id: str, message: str, *, lecture_id: str = "", th
             elif intent == "quiz":
                 data = adapters.practice_request(user_id, safe_message, state["lecture_id"])
                 state["mock"] |= data.get("mock", True)
-                yield {"delta": "（模拟）已转到练习线，下面是地基示例题。" if state["mock"] else "已经为你打开练习。"}
+                yield {"delta": "（模拟）已转到练习线，下面是按这一讲资料出的模拟题。" if state["mock"] else "已经为你打开练习。"}
                 yield {"type": "handoff", "intent": "quiz", "data": data}
             elif intent == "plan":
                 data = adapters.plan_request(user_id, safe_message)

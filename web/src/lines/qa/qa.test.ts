@@ -203,3 +203,19 @@ it("replaces the expired follow-up with the server parent after undo previous",a
  const html=renderToStaticMarkup(createElement(QaAnswer,{answer:{...emptyAnswer('a'),status:'done',handoff:{intent:'plan',data:{card:state.card}}},onReference:()=>{}}));
  expect(html).toContain('已撤销调整');expect(html).not.toContain('过期选项');
 });
+
+
+it("keeps long quiz choices in the wrapping option variant without changing their labels",()=>{
+  const text="学习资料中的一个很长的选项".repeat(30);
+  const answer={...emptyAnswer("long-options"),status:"done" as const,handoff:{intent:"quiz" as const,data:{label:"模拟",questions:[{id:"q-long",kind:"single",stem:"长选项",options:[{id:"A",text},{id:"B",text:"短选项"}]}]}}};
+  const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
+  expect(html.match(/class="btn option"/g)).toHaveLength(2);
+  expect(html).toContain(text); expect(html).toContain("B 短选项");
+});
+
+it("keeps file selection mounted but does not show an idle materials card in a fresh chat",async()=>{
+  const {Shell}=await import('../../components/Shell');
+  const html=renderToStaticMarkup(createElement(Shell));
+  expect(html).toContain('aria-label="选择 PDF 文件"');
+  expect(html).not.toContain('aria-label="资料读取"');
+});

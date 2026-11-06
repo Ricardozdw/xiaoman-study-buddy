@@ -102,6 +102,7 @@ button:disabled { cursor: default; opacity: 0.55; }
   box-shadow: 0 1px 2px #2b506208, inset 0 1px 0 #fff;
   transition: box-shadow 0.16s, transform 0.16s;
 }
+.btn.option { height: auto; min-height: var(--xm-button-height); width: 100%; white-space: normal; text-align: left; justify-content: flex-start; padding-block: 10px; overflow-wrap: anywhere; }
 .btn.primary {
   color: var(--xm-primary-fg);
   border-color: #2f7087;
@@ -301,11 +302,11 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   background: #fff;
   box-shadow: 0 5px 22px #2c536810, 0 1px 3px #2c536806, inset 0 1px 0 #fff;
 }
-.composer input { flex: 1; min-width: 0; min-height: 44px; border: 0; outline: none; background: transparent; font-size: var(--fs); padding: 0 4px; }
+.composer input { flex: 1; min-width: 120px; min-height: 44px; border: 0; outline: none; background: transparent; font-size: var(--fs); padding: 0 4px; }
 .composer input::placeholder { color: var(--t2); }
 .composer:focus-within { border-color: #c2dbe6; }
-.lecture-pill { display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 0 4px 0 11px; border: 1px solid #e5eef2; border-radius: 13px; background: #f0f6f8; font-size: var(--aux); color: #4c6e7d; white-space: nowrap; }
-.lecture-pill select { border: 0; background: transparent; font-size: var(--aux); color: #4c6e7d; height: 32px; }
+.lecture-pill { max-width: 40%; min-width: 0; flex-shrink: 1; overflow: hidden; display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 0 4px 0 11px; border: 1px solid #e5eef2; border-radius: 13px; background: #f0f6f8; font-size: var(--aux); color: #4c6e7d; white-space: nowrap; }
+.lecture-pill select { min-width: 0; max-width: 100%; text-overflow: ellipsis; overflow: hidden; border: 0; background: transparent; font-size: var(--aux); color: #4c6e7d; height: 32px; }
 .disclaimer { flex: 0 0 auto; font-size: var(--aux); line-height: 20px; margin-top: 9px; color: #6c7985; text-align: center; }
 
 /* ---------- 工作台 ---------- */
@@ -368,6 +369,7 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .card h3 { font-size: 18px; }
   .btns { gap: 8px; }
   .composer { width: calc(100% - 28px); margin-top: 6px; min-height: 62px; border-radius: 23px; gap: 6px; }
+  .lecture-pill { max-width: min(40%, 140px); }
   .workbench { position: fixed; z-index: 7; inset: 0; border-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
