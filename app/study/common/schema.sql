@@ -17,4 +17,5 @@
 -- 需要同样策略的表：
 -- goals, courses, chapters, files, kb_documents, material_pages, notes,
 -- knowledge_points, questions, attempts, plan_days, plan_tasks, agent_actions,
--- messages, events, llm_calls, bad_cases, user_settings
+-- messages, events, llm_calls, bad_cases, user_settings, goal_outlines, assessments
+-- V2：goal_outlines（学习大纲）、assessments（阶段测验）同样仅允许当前 user_id。

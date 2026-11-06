@@ -11,14 +11,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 def render():
     import app.study.common.models as models
+    import app.study.v2.models as v2_models
     from app.db import Base
     from sqlalchemy.dialects import postgresql
     from sqlalchemy.schema import CreateIndex, CreateTable
 
-    tables = sorted({value.__table__ for value in vars(models).values()
+    tables = sorted({value.__table__ for module in (models, v2_models) for value in vars(module).values()
                      if isinstance(value, type) and issubclass(value, Base) and hasattr(value, "__table__")}, key=lambda t:t.name)
     dialect = postgresql.dialect()
-    lines = ["-- Generated from app/study/common/models.py; review before execution.",
+    lines = ["-- Generated from app/study/common/models.py and app/study/v2/models.py; review before execution.",
              "-- Requires base RLS roles provisioned separately; runtime roles must not own tables.", "BEGIN;", "SET LOCAL search_path TO public;"]
     for table in tables:
         name = '"public"."' + table.name + '"'
