@@ -33,6 +33,10 @@ class GoalDraftBody(BaseModel):
     intensity: Optional[str] = Field(default=None, description="可选：light / normal / sprint")
 
 
+class AdjustBody(BaseModel):
+    text: str = Field(description="用户的一句话，如“今天只有 15 分钟”")
+
+
 class ReviseBody(BaseModel):
     text: str = Field(description="一句话说怎么改，如“考试改到 12 月 20 日”")
 
@@ -124,6 +128,27 @@ def patch_task(task_id: str, body: TaskPatch, user_id: str = Depends(require_use
     if data is None:
         missing()
     return pack(data)
+
+
+@router.post("/api/tasks/{task_id}/later")
+def task_later(task_id: str, user_id: str = Depends(require_user)):
+    """晚点再做：这件挪到最后，先带下一件。"""
+    data = service.task_later(user_id, task_id)
+    if data is None:
+        missing()
+    return pack(data)
+
+
+@router.post("/api/plan/adjust")
+def plan_adjust(body: AdjustBody, user_id: str = Depends(require_user)):
+    """“今天只有 15 分钟”这类话 → 调强度的建议卡（点了才生效）。已是那一档就直说，不出卡。"""
+    return pack(service.adjust_from_text(user_id, body.text))
+
+
+@router.get("/api/plan/quick-replies")
+def plan_quick_replies(user_id: str = Depends(require_user)):
+    """只给当下说得通的快捷回复（已经轻松就不再给“只有 15 分钟”）。"""
+    return pack({"items": service.plan_today(user_id)["quick_replies"]})
 
 
 @router.get("/api/suggestions")

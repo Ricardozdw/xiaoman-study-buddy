@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
@@ -31,7 +31,7 @@ from app.study.common.models import (
     Question,
     StudyFile,
 )
-from app.study.plan import demo, returning, scheduler
+from app.study.plan import daily, demo, returning, scheduler
 from app.study.plan.scheduler import (
     KIND_LABEL,
     LectureState,
@@ -604,6 +604,22 @@ def plan_today(user_id: str) -> dict[str, Any]:
         first = next((item["id"] for item in items if item["status"] == "todo"), None)
         card = _pending_card(session, user_id, plan.day)
         goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
+        all_done = bool(items) and first is None
+        done = None
+        if all_done:
+            summary = _loads(goal.summary_json, {}) if goal else {}
+            learned = summary.get("learned_up_to")
+            done = daily.done_card(
+                items,
+                _tomorrow_tasks(session, user_id, date.fromisoformat(plan.day)),
+                milestone=daily.milestone_text(
+                    [item["ref"] for item in items if item["kind"] == "learn"],
+                    learned_up_to=learned if isinstance(learned, int) else 0,
+                    lecture_count=goal.lecture_count if goal else 0,
+                ),
+            )
+        setup = needs_setup(goal)
+        first_item = next((item for item in items if item["id"] == first), None)
         return {
             "date": plan.day,
             "intensity": plan.intensity,
@@ -611,11 +627,36 @@ def plan_today(user_id: str) -> dict[str, Any]:
             "minutes": minutes,
             "tasks": items,
             "first_task_id": first,
-            "all_done": bool(items) and first is None,
+            "all_done": all_done,
             "card": _card_view(card) if card is not None else None,
-            "needs_setup": needs_setup(goal),
+            "done_card": done,
+            "needs_setup": setup,
+            "mood": "celebrate" if all_done else ("rest" if not items else "hello"),
+            "quick_replies": daily.quick_replies(
+                needs_setup=setup,
+                has_card=card is not None,
+                intensity=plan.intensity,
+                first_task=first_item,
+                all_done=all_done,
+                has_tasks=bool(items),
+            ),
             "label": "模拟",
         }
+
+
+def _tomorrow_tasks(session, user_id: str, today: date) -> list[dict[str, Any]]:
+    """收工卡上预告明天的三件（只算不存；明天打开时按当时的记录再排一次）。"""
+    tomorrow = today + timedelta(days=1)
+    inputs = gather_inputs(session, user_id, tomorrow)
+    goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
+    level = (_loads(goal.summary_json, {}).get("default_intensity") if goal else None) or DEFAULT_INTENSITY
+    if inputs.learn_mode == "sprint":
+        level = "sprint"
+    out = []
+    for draft in scheduler.schedule(inputs):
+        text = scheduler.describe(draft.kind, draft.ref, level)
+        out.append({"kind": draft.kind, "kind_label": KIND_LABEL[draft.kind], "title": text["title"], "ref": draft.ref})
+    return out
 
 
 def set_intensity(user_id: str, intensity: str) -> dict[str, Any]:
@@ -656,4 +697,60 @@ def patch_task(user_id: str, task_id: str, *, status: Optional[str] = None) -> O
                 elif status == "todo" and current == last:
                     _remember_progress(goal, first - 1)
                 session.commit()
-        return _task_view(row, intensity)
+        data = _task_view(row, intensity)
+        task_day = row.day
+    today = plan_today(user_id)
+    if task_day == today["date"]:
+        nxt = next((t for t in today["tasks"] if t["id"] == today["first_task_id"]), None)
+        data["next"] = daily.next_prompt(nxt)
+        data["all_done"] = today["all_done"]
+        data["done_card"] = today["done_card"]
+    return data
+
+
+def task_later(user_id: str, task_id: str) -> Optional[dict[str, Any]]:
+    """“晚点再做”：这件挪到最后，先带下一件。用户自己的操作，直接生效。"""
+    ensure_today_plan(user_id)
+    with SessionLocal() as session:
+        row = session.get(PlanTask, task_id)
+        if row is None or row.user_id != user_id:
+            return None
+        if row.status == "todo":
+            tasks = _plan_tasks(session, user_id, row.plan_day_id)
+            row.sort_order = max((t.sort_order for t in tasks), default=0) + 1
+            session.commit()
+    return plan_today(user_id)
+
+
+def adjust_from_text(user_id: str, text: str) -> dict[str, Any]:
+    """用户说“今天只有 15 分钟”这类话：出一张调强度的建议卡，点了才换。
+
+    问答线识别到“调安排”时可以直接调这个函数。
+    """
+    plan_id = ensure_today_plan(user_id)
+    target = daily.wanted_intensity(text)
+    with SessionLocal() as session:
+        plan = session.get(PlanDay, plan_id)
+        assert plan is not None
+        pending = _pending_card(session, user_id, plan.day)
+        if pending is not None:
+            return {"understood": target is not None, "card": _card_view(pending), "reply": "先把这张卡定下来，再说别的"}
+        if target is None:
+            return {"understood": False, "card": None, "reply": daily.NOT_UNDERSTOOD}
+        if target == plan.intensity:
+            return {"understood": True, "card": None, "reply": daily.same_level_reply(target)}
+        card = daily.adjust_card(target)
+        card.update({"plan_line": True, "day": plan.day, "label": daily.BADGE})
+        row = AgentAction(
+            id=f"{user_id}:adjust:{uuid.uuid4().hex[:10]}",
+            user_id=user_id,
+            trigger="adjust",
+            suggestion_json=json.dumps(card, ensure_ascii=False),
+            status="pending",
+            before_json="{}",
+            after_json="{}",
+        )
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return {"understood": True, "card": _card_view(row), "reply": ""}
