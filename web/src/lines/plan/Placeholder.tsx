@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Badge, Bubble } from "../../components/ui";
 import { DemoClockPanel } from "./DemoClockPanel";
 import { GoalSetup } from "./GoalSetup";
 import { changesLeftColumn, type Answers } from "./logic";
@@ -7,10 +8,13 @@ import { PlanCardView } from "./PlanCardView";
 import type { DemoClock, GoalQuestion, Opening, PlanCard, PlanOption, PlanTodayExt } from "./types";
 
 // 计划线面板：小满开场、定目标、当前这张卡（目标拆解 / 建议 / 重排）、撤销、收工卡、快捷回复、演示开关。
-// 现在挂在右侧工作台底部（Shell 里的 <PlanLine />）。卡片正式该出现在对话流里，等 A 统一挂载。
+// A 统一挂载（11-06）：inChat 时挂在对话流开头，开场白用小满气泡；还没定目标时直接开始问目标。
+// 演示开关只在开发模式（showDemo）显示。
 // 改到左栏的操作（生效、撤销、跳日期）做完刷新整页，因为左栏归共用的 Shell 管。
 
-export function PlanLine() {
+type Props = { inChat?: boolean; showDemo?: boolean };
+
+export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
   const [plan, setPlan] = useState<PlanTodayExt | null>(null);
   const [opening, setOpening] = useState<Opening | null>(null);
   const [questions, setQuestions] = useState<GoalQuestion[]>([]);
@@ -26,10 +30,19 @@ export function PlanLine() {
       api<DemoClock>("/api/demo/clock"),
     ]);
     if (planRes.source !== "api") return; // 后端没接上时不显示计划线面板
-    setPlan(planRes.envelope.data);
+    const today = planRes.envelope.data;
+    setPlan(today);
     if (openRes.source === "api") setOpening(openRes.envelope.data);
     if (clockRes.source === "api") setClock(clockRes.envelope.data);
-  }, []);
+    // 在对话里：还没定目标、也没有待处理的卡时，直接开始问目标（一次一题，可以跳过）。
+    if (inChat && today.needs_setup && !today.card) {
+      const res = await api<{ questions: GoalQuestion[] }>("/api/goals/questions");
+      if (res.source === "api" && res.envelope.data.questions.length) {
+        setQuestions(res.envelope.data.questions);
+        setAsking(true);
+      }
+    }
+  }, [inChat]);
 
   useEffect(() => {
     void load();
@@ -70,17 +83,22 @@ export function PlanLine() {
   }
 
   if (!plan) {
-    return <p className="line-placeholder">计划线：后端没接上时这里不显示。</p>;
+    return inChat ? null : <p className="line-placeholder">计划线：后端没接上时这里不显示。</p>;
   }
   const card = plan.card;
 
   return (
     <section aria-label="计划线">
-      {opening && (
+      {opening && (inChat ? (
+        <Bubble role="xiaoman">
+          {opening.label && <><Badge sim={opening.label === "模拟"}>{opening.label}</Badge><br /></>}
+          {opening.greeting}
+        </Bubble>
+      ) : (
         <p className="line-placeholder">
           <span className="badge">{opening.label}</span> 小满：{opening.greeting}
         </p>
-      )}
+      ))}
 
       {card ? (
         <PlanCardView
@@ -148,7 +166,7 @@ export function PlanLine() {
         </div>
       )}
 
-      {clock?.enabled && (
+      {showDemo && clock?.enabled && (
         <DemoClockPanel
           clock={clock}
           busy={busy}

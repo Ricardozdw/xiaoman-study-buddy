@@ -8,6 +8,8 @@ export type Task = {
   status: "todo" | "done";
   done_when: string;
   minutes?: number;
+  /** 计划线排任务时记下的来源，例如“交第 N 讲课件”是 { source: "upload", lecture_id: "lec-N" }。 */
+  ref?: { source?: string; lecture_id?: string };
 };
 
 export type PlanToday = {
@@ -17,6 +19,8 @@ export type PlanToday = {
   minutes: number;
   tasks: Task[];
   label: string;
+  /** 还没在目标拆解卡上点过“好”：今天三件还是地基样例，先引导定目标。 */
+  needs_setup?: boolean;
 };
 
 export type NoteItem = {
