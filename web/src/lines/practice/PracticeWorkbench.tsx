@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui";
 import { ApiError, request, type FeedbackRecord, type Material, type ReviewItem, type Progress, type Quiz, type Stats } from "./api";
 import { feedbackNotice } from "./FeedbackPanel";
 import { QuestionReviewList } from "./QuestionReviewList";
@@ -190,7 +191,7 @@ export function PracticeWorkbench({ lectureId = "", taskId = "", onActiveChange,
         <div className="practice-resume-latest">
           <p className="practice-resume-file" title={filename(recent.lecture_id)}>{filename(recent.lecture_id)}</p>
           <span className="practice-resume-progress">已答 {Object.keys(recent.results || {}).length}/{recent.questions.length} 题</span>
-          <button className="btn primary" disabled={busy} onClick={() => void resume(recent)}>继续练习</button>
+          <Button variant="primary" disabled={busy} onClick={() => void resume(recent)}>继续练习</Button>
         </div>
         {pausedQuizzes.length > 1 && <details><summary>更多（{pausedQuizzes.length - 1}）</summary>
           {pausedQuizzes.slice(1).map((saved) => <div className="practice-resume-row" key={saved.quiz_id}>
@@ -214,7 +215,7 @@ export function PracticeWorkbench({ lectureId = "", taskId = "", onActiveChange,
           <label>难度 <select aria-label="题目难度" value={difficulty} disabled={busy} onChange={(e) => setDifficulty(e.target.value)}><option value="easy">易</option><option value="medium">中</option><option value="hard">难</option></select></label>
         </div>
         {!validCount && <p role="alert">请输入1到15之间的整数。</p>}
-        <div className="practice-primary-action"><button className={recent ? "btn" : "btn primary"} disabled={busy || !selected || !validCount} onClick={() => void start()}>开始练习</button></div>
+        <div className="practice-primary-action"><Button variant={recent ? "secondary" : "primary"} disabled={busy || !selected || !validCount} onClick={() => void start()}>开始练习</Button></div>
       </section>
       {selected && stats && <section className="card"><LearningSummary summary={stats} title="学习概览"
         action={<button className="practice-link" disabled={busy} onClick={() => navigate("review")}>去复习 →</button>} />

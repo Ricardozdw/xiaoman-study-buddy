@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Button } from "../../components/ui";
 import { FeedbackPanel, feedbackNotice } from "./FeedbackPanel";
 import { AnswerDetails, LearningSummary } from "./LearningSummary";
 import { QuestionReviewList } from "./QuestionReviewList";
@@ -96,7 +97,7 @@ export function QuizCard({ quiz, pdfName = "当前 PDF", onChange, onComplete, o
       </> : <>
         <h1>练习完成</h1><p className="aux">{pdfName} · {quiz.questions.length} 题</p>
         {quiz.summary && <LearningSummary summary={quiz.summary} title="本次练习表现" />}
-        <div className="btns"><button className="btn primary" onClick={() => setReviewing(true)}>回顾本套题</button><button className="btn" onClick={onHome}>返回首页</button></div>
+        <div className="btns"><Button variant="primary" onClick={() => setReviewing(true)}>回顾本套题</Button><Button onClick={onHome}>返回首页</Button></div>
       </>}
     </article>;
   }
@@ -115,8 +116,8 @@ export function QuizCard({ quiz, pdfName = "当前 PDF", onChange, onComplete, o
     </fieldset>
     {result && <div aria-live="polite"><AnswerDetails result={result} /></div>}
     <div className="practice-primary-action">{result
-      ? <button className="btn primary" disabled={busy} onClick={() => void next()}>{index === quiz.questions.length - 1 ? "完成练习" : "下一题"}</button>
-      : <button className="btn primary" disabled={!choice || busy} onClick={() => void submit()}>提交答案</button>}</div>
+      ? <Button variant="primary" disabled={busy} onClick={() => void next()}>{index === quiz.questions.length - 1 ? "完成练习" : "下一题"}</Button>
+      : <Button variant="primary" disabled={!choice || busy} onClick={() => void submit()}>提交答案</Button>}</div>
     <FeedbackPanel disabled={busy} key={q.id} questionId={q.id} quizId={quiz.quiz_id} attemptId={result?.attempt_id}
       report={result?.report || quiz.reports?.[q.id]} onSaved={refreshRecords} />
     {busy && <p role="status" className="aux">正在保存…</p>}{error && <p role="alert">{error}</p>}

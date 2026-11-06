@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "../../components/ui";
 import type { FeedbackRecord, Result, ReviewItem } from "./api";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { AnswerDetails, filters, matchesFilter, OptionReview, StateTag } from "./LearningSummary";
@@ -20,10 +21,10 @@ export function QuestionReviewList({ items, busy = false, initialFilter = "wrong
   function changeFilter(value: string) { setFilter(value); setSelected([]); }
   return <section className="practice-review-list" aria-label="题目列表">
     <div className="practice-review-tools">
-      <div className="btns" aria-label="题目筛选">{filters.map(([value, label]) => <button className="btn" key={value} disabled={busy}
-        aria-pressed={filter === value} onClick={() => changeFilter(value)}>{label}</button>)}</div>
+      <div className="btns" aria-label="题目筛选">{filters.map(([value, label]) => <Button key={value} disabled={busy}
+        aria-pressed={filter === value} onClick={() => changeFilter(value)}>{label}</Button>)}</div>
       <details className="practice-extra-filter"><summary>更多筛选{filter === "reported" ? " · 已反馈" : ""}</summary>
-        <button className="btn" aria-pressed={filter === "reported"} disabled={busy} onClick={() => changeFilter("reported")}>已反馈</button>
+        <Button aria-pressed={filter === "reported"} disabled={busy} onClick={() => changeFilter("reported")}>已反馈</Button>
       </details>
     </div>
     {onStart && <>
@@ -49,7 +50,7 @@ export function QuestionReviewList({ items, busy = false, initialFilter = "wrong
             </details>)}
           </details>}
           <div className="practice-row-footer">
-            {onStart && !item.excluded && <button className="btn" disabled={busy} onClick={() => onStart([item])}>换个问法再练</button>}
+            {onStart && !item.excluded && <Button disabled={busy} onClick={() => onStart([item])}>换个问法再练</Button>}
             <FeedbackPanel inlineNotice={false} disabled={busy} questionId={item.question_id} quizId={quizId} attemptId={item.attempt_id} report={item.report} onSaved={onFeedback} />
           </div>
         </div>
@@ -57,9 +58,9 @@ export function QuestionReviewList({ items, busy = false, initialFilter = "wrong
     </div>)}
     {onStart && <div className="practice-batch-bar">
       <div><span>已选 {chosen.length} 题</span>{overLimit && <p role="alert" className="aux">一次最多复习15题，请取消部分选择。</p>}</div>
-      <button className="btn primary" disabled={busy || !chosen.length || overLimit} onClick={() => {
+      <Button variant="primary" disabled={busy || !chosen.length || overLimit} onClick={() => {
         if (!busy && chosen.length > 0 && chosen.length <= 15) onStart(chosen);
-      }}>{busy ? "生成中…" : "开始复习"}</button>
+      }}>{busy ? "生成中…" : "开始复习"}</Button>
     </div>}
   </section>;
 }

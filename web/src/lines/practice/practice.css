@@ -4,7 +4,7 @@
 .practice-ring { flex: none; animation: practice-spin 1s linear infinite; }
 @keyframes practice-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .practice-ring { animation: none; } }
-.stream .btn[aria-pressed="true"] { color: var(--onacc); background: var(--accent); border-color: var(--accent); }
+.practice-app .btn[aria-pressed="true"] { color: var(--onacc); background: var(--accent); border-color: var(--accent); }
 .question-feedback { margin: 14px 0; padding: 12px 0; border-top: 1px solid var(--line); }
 .question-feedback .badge { margin-right: 8px; }
 .question-feedback button + button { margin-left: 8px; }
@@ -48,7 +48,7 @@
 .practice-source blockquote { margin: 8px 0; border-left: 2px solid var(--line); padding: 0 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .practice-app .question-feedback { margin: 12px 0 0; padding: 0; border: 0; text-align: right; font-size: var(--aux); }
 .practice-dialog { text-align: left; width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); border: 1px solid var(--line); background: var(--card); color: var(--t1); border-radius: 16px; padding: 24px; overflow: auto; }
-.practice-dialog::backdrop { background: #0006; }
+.practice-dialog::backdrop { background: color-mix(in srgb, var(--xm-ink) 40%, transparent); }
 .practice-dialog h2 { font-size: 1.2rem; margin: 0 0 20px; }
 .practice-dialog textarea { display: block; width: 100%; margin-top: 8px; font: inherit; color: inherit; }
 .practice-dialog-actions { justify-content: flex-end; }
@@ -104,16 +104,17 @@
 .practice-app .practice-overview-heading h2 { margin: 0; }
 .practice-count-tags { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 14px; }
 .practice-count-tags > span { padding: 5px 10px; border-radius: 8px; }
-.practice-count-correct { color: #166534; background: #dcfce7; }
-.practice-count-wrong { color: #991b1b; background: #fee2e2; }
-.practice-count-reported { color: #9a3412; background: #ffedd5; }
+.practice-count-correct { color: var(--accent); background: var(--soft); }
+/* 答错不用红色：对错只影响掌握度，不追责 */
+.practice-count-wrong { color: var(--t1); background: var(--xm-assistant-bubble); }
+.practice-count-reported { color: var(--warn); background: var(--warnbg); }
 .practice-review-intro { margin: 18px 0 8px; }
 .practice-select-all { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .practice-review-checkbox { width: 44px; flex: 0 0 44px; min-height: 68px; display: grid; place-items: center; cursor: pointer; }
 .practice-review-checkbox input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .practice-select-all .practice-review-checkbox { min-height: 52px; }
 .practice-review-list:has(.practice-batch-bar) { padding-bottom: 16px; }
-.practice-batch-bar { z-index: 3; flex-wrap: wrap; margin-top: 28px; box-shadow: 0 2px 12px #0001; }
+.practice-batch-bar { z-index: 3; flex-wrap: wrap; margin-top: 28px; box-shadow: 0 7px 22px #3a617010; }
 .practice-batch-bar > button { margin-left: auto; flex-shrink: 0; }
 .practice-app .practice-batch-bar .btn:disabled { background: var(--line); color: var(--t2); border-color: var(--line); opacity: 1; }
 .practice-batch-bar [role=alert] { margin: 6px 0 0; }
@@ -129,11 +130,4 @@
   .practice-question-detail > summary { gap: 8px; }
   .practice-batch-bar { bottom: 8px; padding: 12px; gap: 12px; }
 }
-:root[data-theme="dark"] .practice-count-correct { color: #bbf7d0; background: #14532d; }
-:root[data-theme="dark"] .practice-count-wrong { color: #fecaca; background: #7f1d1d; }
-:root[data-theme="dark"] .practice-count-reported { color: #fed7aa; background: #7c2d12; }
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="system"] .practice-count-correct { color: #bbf7d0; background: #14532d; }
-  :root[data-theme="system"] .practice-count-wrong { color: #fecaca; background: #7f1d1d; }
-  :root[data-theme="system"] .practice-count-reported { color: #fed7aa; background: #7c2d12; }
-}
+/* 暗色模式暂不做（以后作为换肤加回来） */

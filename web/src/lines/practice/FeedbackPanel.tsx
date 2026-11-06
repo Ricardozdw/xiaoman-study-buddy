@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import { Button } from "../../components/ui";
 import { request, type FeedbackRecord } from "./api";
 
 export const feedbackNotice = (record: FeedbackRecord) => record.active ? "已记录，本题暂不计入统计。" : "已撤回，本题已恢复参与统计。";
@@ -47,8 +48,8 @@ export function FeedbackPanel({ questionId, quizId = "", attemptId = "", disable
         <p className="aux">本题暂不计入学习统计和推荐复习，原作答记录仍保留。</p>
         <p>问题类型：{current?.category_label}</p><p>补充说明：{current?.reason || "未填写"}</p>
         <p className="aux">已保存在服务端{current?.updated_at && ` · ${new Date(current.updated_at).toLocaleString()}`}</p>
-        <div className="btns"><button className="btn" disabled={busy} onClick={() => { setCategory(current?.category || ""); setReason(current?.reason || ""); setEditing(true); }}>编辑反馈</button>
-          <button className="btn" disabled={busy} onClick={() => void send(true)}>{busy ? "提交中…" : "撤回反馈"}</button>
+        <div className="btns"><Button disabled={busy} onClick={() => { setCategory(current?.category || ""); setReason(current?.reason || ""); setEditing(true); }}>编辑反馈</Button>
+          <Button disabled={busy} onClick={() => void send(true)}>{busy ? "提交中…" : "撤回反馈"}</Button>
           <button className="practice-link" disabled={busy} onClick={() => dialog.current?.close()}>关闭</button></div>
         <p className="aux">撤回后，按原作答恢复分类和统计。</p>
       </> : <>
@@ -57,8 +58,8 @@ export function FeedbackPanel({ questionId, quizId = "", attemptId = "", disable
           <option value="">请选择</option><option value="answer">答案或解析不对</option><option value="ambiguous">题干或选项有歧义</option><option value="source">出处对不上</option><option value="other">其他问题</option>
         </select></label>
         <p><label>补充说明（选填）<textarea value={reason} disabled={busy} maxLength={1000} rows={3} onChange={(e) => setReason(e.target.value)} /></label></p>
-        <div className="btns practice-dialog-actions"><button className="btn" disabled={busy} onClick={() => { dialog.current?.close(); }}>取消</button>
-          <button className="btn primary" disabled={busy || !category} onClick={() => void send()}>{busy ? "提交中…" : "提交反馈"}</button></div>
+        <div className="btns practice-dialog-actions"><Button disabled={busy} onClick={() => { dialog.current?.close(); }}>取消</Button>
+          <Button variant="primary" disabled={busy || !category} onClick={() => void send()}>{busy ? "提交中…" : "提交反馈"}</Button></div>
       </>}
       {error && <p role="alert">{error}</p>}
     </dialog>
