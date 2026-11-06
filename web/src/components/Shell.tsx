@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { api, ensureSession, readStream } from "../api/client";
+import { api } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
 import { DashboardLine } from "../lines/dashboard/Placeholder";
 import { MaterialsLine } from "../lines/materials/Placeholder";
 import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
-import { QaLine } from "../lines/qa/Placeholder";
+import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Reference } from "../lines/qa";
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
@@ -14,7 +14,7 @@ import { Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
 type Tab = "note" | "page" | "board";
-type Bubble = { id: string; role: "user" | "xiaoman"; text: string };
+type Notice = { id: string; role: "user" | "xiaoman"; text: string };
 
 const INTENSITY: { id: Intensity; label: string }[] = [
   { id: "light", label: "轻松" },
@@ -31,15 +31,17 @@ export function Shell() {
   // 一开始对话流里不放卡片；各线接上真实业务后，由它们按“一次只出一张”往这里加。
   // 七种卡片的样子仍可用 cards/logic.ts 的 previewCards() 查看。
   const [cards, setCards] = useState<StudyCard[]>([]);
-  const [bubbles, setBubbles] = useState<Bubble[]>([
+  const [bubbles] = useState<Notice[]>([
     { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边，想从哪件开始都行；有不懂的，直接问我。" },
   ]);
   const [draft, setDraft] = useState("");
-  const [lectureId, setLectureId] = useState("lec-6");
+  const qa = useQaConversation();
+  const { lectureId, setLectureId, busy } = qa;
+  const effectiveLectureId = lectureId || qa.currentLectureId;
+  const [sourceReference, setSourceReference] = useState<Reference | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
   const [rail, setRail] = useState(false);
   const [font, setFont] = useState<FontSize>("md");
-  const [busy, setBusy] = useState(false);
   const [permissions, setPermissions] = useState<Permissions | null>(null);
   // 往下滑时小满缩成顶部小头像，给对话腾出地方。
   const [compact, setCompact] = useState(false);
@@ -88,11 +90,11 @@ export function Shell() {
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
-    const count = bubbles.length + cards.length;
+    const count = bubbles.length + qa.messages.length + cards.length;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
     if (count !== lastCount.current || nearBottom) el.scrollTop = el.scrollHeight;
     lastCount.current = count;
-  }, [bubbles, cards.length]);
+  }, [bubbles, qa.messages, cards.length]);
 
   // 暗色模式暂不做（以后作为换肤加回来），这里只管字号。
   useEffect(() => {
@@ -100,18 +102,18 @@ export function Shell() {
   }, [font]);
 
   useEffect(() => {
+    if (!qa.sessionReady) return;
     let cancelled = false;
     (async () => {
-      const session = await ensureSession();
       const [planRes, noteRes, boardRes, pageRes, permRes] = await Promise.all([
         api<PlanToday>("/api/plan/today"),
         api<{ items: NoteItem[] }>("/api/notes"),
         api<Dashboard>("/api/dashboard?range=week"),
-        api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${lectureId}/pages`),
+        effectiveLectureId ? api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${encodeURIComponent(effectiveLectureId)}/pages`) : Promise.resolve({ source: "api" as const, envelope: { data: { pages: [] } } }),
         api<Permissions>("/api/me/permissions"),
       ]);
       if (cancelled) return;
-      const fromApi = session && [planRes, noteRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
+      const fromApi = [planRes, noteRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
       setSource(fromApi ? "api" : "mock");
       setPlan(planRes.envelope.data);
       const first = noteRes.envelope.data.items?.[0];
@@ -122,12 +124,12 @@ export function Shell() {
       setBoard(boardRes.envelope.data);
       setPermissions(permRes.envelope.data);
       const pages = pageRes.envelope.data.pages || [];
-      if (pages.length) setPageText(pages.map((item) => `【第 ${item.page} 页】${item.text}`).join("\n\n"));
+      setPageText(pages.map((item) => `【第 ${item.page} 页】${item.text}`).join("\n\n"));
     })();
     return () => {
       cancelled = true;
     };
-  }, [lectureId]);
+  }, [effectiveLectureId, qa.sessionReady]);
 
   async function changeIntensity(intensity: Intensity) {
     const total = intensity === "light" ? 15 : intensity === "sprint" ? 50 : 30;
@@ -157,24 +159,9 @@ export function Shell() {
 
   async function send() {
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text || busy || !qa.sessionReady) return;
     setDraft("");
-    const replyId = crypto.randomUUID();
-    setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "user", text }, { id: replyId, role: "xiaoman", text: "" }]);
-    setBusy(true);
-    try {
-      const reply = await readStream("/api/chat/stream", { message: text, lecture_id: lectureId }, (full) => {
-        setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: full } : item)));
-      });
-      if (!reply) {
-        setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）我在。" } : item)));
-      }
-    } catch {
-      setBubbles((list) => list.map((item) => (item.id === replyId ? { ...item, text: "（模拟）后端这会儿没接上，我先用本地的同一形状回你。" } : item)));
-      setSource("mock");
-    } finally {
-      setBusy(false);
-    }
+    await qa.send(text);
   }
 
   async function handIn() {
@@ -182,9 +169,9 @@ export function Shell() {
     const fileId = created.envelope.data.file_id;
     if (created.source === "api" && fileId) {
       await api(`/api/files/${fileId}/raw`, { method: "PUT" });
-      await api(`/api/files/${fileId}/complete`, { method: "POST", body: JSON.stringify({ lecture_id: lectureId }) });
+      await api(`/api/files/${fileId}/complete`, { method: "POST", body: JSON.stringify({ lecture_id: effectiveLectureId }) });
     }
-    setBubbles((list) => [...list, { id: crypto.randomUUID(), role: "xiaoman", text: "（模拟）资料先记下来了。真正按页抽文字还没做。" }]);
+    qa.addNotice("（模拟）资料先记下来了。真正按页抽文字还没做。");
     setCards((list) => list.map((card) => (card.type === "progress" ? collapseCard(card) : card)));
   }
 
@@ -244,7 +231,7 @@ export function Shell() {
             <ul className="list-group">
               {board.lectures.map((lecture) => (
                 <li key={lecture.id}>
-                  <button type="button" className="list-row" onClick={() => { setLectureId(lecture.id); setTab("page"); }}>
+                  <button type="button" className="list-row" onClick={() => { setLectureId(lecture.id); setSourceReference(null); setTab("page"); }}>
                     <span className="list-icon">
                       <Icon name="file" />
                     </span>
@@ -317,6 +304,8 @@ export function Shell() {
                 {bubble.text}
               </Bubble>
             ))}
+            {qa.messages.map((answer) => <QaAnswer key={answer.id} answer={answer} active={answer.id === qa.messages.at(-1)?.id} onPlanChange={setPlan} onReference={(reference) => { setSourceReference(reference); setTab("page"); }} />)}
+            {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
             {cards.map((card) => (
               <StudyCardView
                 key={card.id}
@@ -337,17 +326,14 @@ export function Shell() {
             <IconButton icon="plus" label="交资料" onClick={() => void handIn()} />
             <input
               value={draft}
+              maxLength={4000}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="跟小满说，或把课件交给它…"
               aria-label="跟小满说一句"
             />
-            <label className="lecture-pill">
-              @
-              <select value={lectureId} onChange={(event) => setLectureId(event.target.value)} aria-label="这句话说的是哪一讲">
-                <option value="lec-6">第 6 讲</option>
-              </select>
-            </label>
-            <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy} />
+            <LecturePicker value={lectureId} onChange={setLectureId} lectures={qa.lectures} currentLectureId={qa.currentLectureId} disabled={busy} />
+            {busy && <Button onClick={qa.stop}>停止</Button>}
+            <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy || !qa.sessionReady} />
           </form>
           <p className="disclaimer">AI 整理，可以改 · 重要内容请对照原文</p>
         </main>
@@ -370,7 +356,7 @@ export function Shell() {
                 </ul>
               </div>
             )}
-            {tab === "page" && <pre className="page">{pageText}</pre>}
+            {tab === "page" && (sourceReference ? <QaSourcePanel reference={sourceReference} /> : <pre className="page">{pageText}</pre>)}
             {tab === "board" && (
               <div>
                 <p>{board.note}</p>
@@ -381,7 +367,6 @@ export function Shell() {
             <section className="lines">
               <h3>五条线的位置</h3>
               <MaterialsLine />
-              <QaLine />
               <PracticeLine />
               <PlanLine />
               <DashboardLine />
