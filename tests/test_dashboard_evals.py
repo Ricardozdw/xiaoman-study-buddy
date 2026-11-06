@@ -43,3 +43,52 @@ def test_fixed_cases_without_public_evidence_are_not_silently_skipped():
     cases, blocked=export_rows([row])
     assert not blocked and cases[0]["prompt"]["version"] == "v2"
     assert "expected_output" not in cases[0]
+
+
+@pytest.mark.parametrize("actual,expected", [(True,1),(False,0),({"answer":True},{"answer":1}),([True],[1])])
+def test_boolean_is_not_a_numeric_answer(actual,expected):
+    assert grade({"result":actual},{"result":expected})[0] is False
+
+
+def test_offline_cases_cannot_stand_in_for_ai_quality(tmp_path):
+    (tmp_path/"fake.json").write_text(json.dumps([{"id":"fake-qa","kind":"dashboard","capability":"qa_citation","payload":{},"checks":{"answer":True}}]))
+    with pytest.raises(ValueError,match="不能用看板"):
+        load_cases(tmp_path)
+
+
+def _complete_samples():
+    from evals.run import ROOT
+    requirements=json.loads((ROOT/"evals/manifest.json").read_text())["required"]
+    cases,results=[],[]
+    for capability,requirement in requirements.items():
+        for index in range(requirement["minimum_cases"]+1):
+            case={"id":f"{capability}-{index}","kind":"dashboard" if capability=="dashboard" else "ai","capability":capability,"payload":{},"checks":{"answer":True}}
+            cases.append(case)
+            results.append({"id":case["id"],"kind":case["kind"],"capability":capability,"state":"completed","passed":True,"model":"candidate"})
+    return cases,results
+
+
+def test_fixed_case_failure_is_never_averaged_away():
+    cases,results=_complete_samples()
+    assert build_report(cases,results,"live","candidate")["release_ready"]
+    position=next(i for i,c in enumerate(cases) if c["capability"]=="qa_citation")
+    cases[position]["regression"]=True
+    results[position]["passed"]=False
+    report=build_report(cases,results,"live","candidate")
+    assert report["coverage"]["qa_citation"]["ready"]
+    assert report["fixed_case_failures"] == [cases[position]["id"]]
+    assert not report["release_ready"]
+
+
+def test_missing_or_misattributed_results_block_release():
+    cases,results=_complete_samples()
+    assert not build_report(cases,results[1:],"live","candidate")["release_ready"]
+    results[0]["passed"]="yes"
+    report=build_report(cases,results,"live","candidate")
+    assert report["data_errors"] and not report["release_ready"]
+
+
+def test_model_comparison_requires_the_same_prompt_versions():
+    report={"dataset_sha256":"same","mode":"live","model":"deepseek-flash","release_ready":True,"results":[],"prompts":{"x":{"name":"qa.answer","version":"v1"}}}
+    with pytest.raises(ValueError,match="相同提示词版本"):
+        compare(report,{**report,"model":"deepseek-v4-pro","prompts":{"x":{"name":"qa.answer","version":"v2"}}})

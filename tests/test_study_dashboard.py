@@ -8,7 +8,7 @@ import pytest
 from app.data_access.session import SessionLocal
 from app.study.common.db import ensure_schema
 from app.study.common.models import (
-    Attempt, BadCase, Chapter, Course, Goal, KnowledgePoint, PlanTask, Question, StudyEvent, StudyMessage,
+    Attempt, BadCase, Chapter, Course, Goal, KnowledgePoint, PlanDay, PlanTask, Question, StudyEvent, StudyMessage,
 )
 from app.study.dashboard.service import snapshot
 from app.study.dashboard.telemetry import capture_feedback, record_call, usage_summary
@@ -152,3 +152,57 @@ def test_plan_progress_and_demo_clock_share_the_same_day(monkeypatch, person):
     assert "演示用" in after["label"]
     assert after["studied_days"] >= 1
     assert after["goal_progress"] == after["plan_progress"]["goal_progress"]
+
+
+def test_reading_dashboard_never_generates_a_plan(monkeypatch, person):
+    from app.study.plan import demo
+    monkeypatch.setattr(demo, "real_today", lambda: date(2026, 11, 6))
+    insert(Goal(id=person+"goal", user_id=person, lecture_count=10,
+                summary_json='{"learned_up_to":3,"phases":[{"name":"学新讲","start":"2026-11-01","end":"2026-11-20"}]}'),
+           PlanDay(id=person+"old", user_id=person, day="2026-11-05"))
+    before = snapshot(person)
+    assert before["goal_progress"] == 0.3
+    assert before["plan_progress"]["phase"] == "学新讲"
+    with SessionLocal() as session:
+        from sqlalchemy import select
+        assert len(session.scalars(select(PlanDay).where(PlanDay.user_id == person)).all()) == 1
+        assert session.scalars(select(PlanTask).where(PlanTask.user_id == person)).all() == []
+
+
+@pytest.mark.parametrize("summary", ['null', '[]', '{"phases":["旧样例",{"start":"broken","end":[]}]}'])
+def test_legacy_and_malformed_records_remain_readable(person, summary):
+    insert(Goal(id=person+"g",user_id=person,lecture_count=3,summary_json=summary),
+           StudyEvent(id=person+"e",user_id=person,name="task_status",props_json='{"status":"done","task_id":[]}'))
+    assert snapshot(person)["goal_progress"] == 0
+
+
+def test_completed_goal_and_paused_goal_do_not_show_misleading_progress(person):
+    insert(Goal(id=person+"g",user_id=person,title="完成的公开课",lecture_count=4,status="done",summary_json='{"learned_up_to":1}'))
+    board=snapshot(person)
+    assert board["goal_progress"] == 1 and board["goal"]["completed_lectures"] == 4
+    insert(Goal(id=person+"paused",user_id=person,title="暂停的公开课",lecture_count=5,status="paused",created_at="2099-01-01T00:00:00Z",summary_json='{"learned_up_to":2}'))
+    board=snapshot(person)
+    assert board["goal"]["status"] == "paused" and board["goal_progress"] == 0.4
+
+
+def test_uploaded_lectures_without_chapter_and_duplicate_chapters(person):
+    insert(Chapter(id=person+"c1",user_id=person,lecture_id="l1",title="第1讲"),
+           Chapter(id=person+"c2",user_id=person,lecture_id="l1",title="重复的第1讲"),
+           KnowledgePoint(id=person+"p",user_id=person,lecture_id="l2",mastery=65))
+    board=snapshot(person)
+    assert len(board["lectures"]) == 2
+    assert next(row for row in board["lectures"] if row["id"] == "l2")["mastery"] == 65
+
+
+def test_feedback_can_add_its_first_reason_without_duplicating_incident(person):
+    insert(Question(id=person+"q",user_id=person,stem="公开题目"))
+    case=capture_feedback(person,target_type="question",target_id=person+"q",reason="")
+    assert case == capture_feedback(person,target_type="question",target_id=person+"q",reason="原文与答案不符")
+    with SessionLocal() as session:
+        assert json.loads(session.get(BadCase,case).input_json)["reason"] == "原文与答案不符"
+
+
+@pytest.mark.parametrize("latency", [float("nan"),float("inf"),-1,True])
+def test_invalid_latency_does_not_pollute_cost_records(person,latency):
+    with pytest.raises(ValueError):
+        record_call(user_id=person,capability="qa",prompt_name="qa.answer",prompt_version="v1",model="x",prompt_tokens=1,completion_tokens=1,latency_ms=latency,ok=True)

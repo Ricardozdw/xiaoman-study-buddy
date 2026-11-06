@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 import uuid
@@ -29,6 +30,8 @@ def record_call(*, user_id: str, capability: str, prompt_name: str, prompt_versi
     if any(v is not None and (isinstance(v, bool) or not isinstance(v, int) or v < 0)
            for v in (prompt_tokens, completion_tokens)):
         raise ValueError("token 必须是非负整数，未知时填 None")
+    if isinstance(latency_ms, bool) or not isinstance(latency_ms, (int, float)) or not math.isfinite(latency_ms) or latency_ms < 0:
+        raise ValueError("延迟必须是有限的非负数")
     row_id = uuid.uuid4().hex
     with SessionLocal() as session:
         session.add(LlmCall(
@@ -67,7 +70,7 @@ def tracked_json(*, user_id: str, capability: str, prompt_name: str, prompt_vers
                            problem_type="格式错" if attempt.get("error") == "schema" else "报错或超时",
                            severity="中", fix_note="该次失败后网关可能继续重试或切备用；上游失败时可能无输出。")
     if not result.ok:
-        if result.mode != "mock":
+        if result.mode != "mock" and not result.attempts:
             write_bad_case(user_id=user_id, capability=capability, input_payload=payload,
                            actual_output="网关调用失败", model=result.spec.model if result.spec else "unknown",
                            prompt_version=f"{prompt_name}@{prompt_version}", problem_type="报错或超时",
@@ -113,7 +116,11 @@ def usage_summary(user_id: str) -> dict:
             cap = legacy.setdefault(row.capability, {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})
             for field in cap:
                 cap[field] += 1 if field == "calls" else getattr(row, field)
+        for bucket in buckets.values():
+            bucket["cost_complete"] = bucket["unpriced_calls"] == 0
+            bucket["complete_cost_estimate"] = bucket["priced_cost_estimate"] if bucket["cost_complete"] else None
         return {"by_capability": legacy, "groups": list(buckets.values()), "totals_by_currency": totals,
+                "cost_complete": all(bucket["cost_complete"] for bucket in buckets.values()),
                 "pricing": pricing, "note": "费用为指定价格表的估算，不是实际账单。未知单价或估算 token 的调用不计入费用小计。",
                 "items": [{"id": r.id, "capability": r.capability, "model": r.model,
                            "prompt": f"{r.prompt_name}@{r.prompt_version}", "prompt_tokens": r.prompt_tokens,
@@ -122,6 +129,8 @@ def usage_summary(user_id: str) -> dict:
 
 
 def capture_feedback(user_id: str, *, target_type: str, target_id: str, reason: str) -> str | None:
+    if target_type not in ("message", "question"):
+        raise ValueError("反馈目标必须是 message 或 question")
     ensure_schema()
     model_cls = StudyMessage if target_type == "message" else Question
     with SessionLocal() as session:
@@ -129,7 +138,18 @@ def capture_feedback(user_id: str, *, target_type: str, target_id: str, reason: 
         if row is None:
             return None
         case_id = hashlib.sha256(f"{user_id}:{target_type}:{target_id}:down".encode()).hexdigest()
-        if session.get(BadCase, case_id):
+        existing = session.scalar(select(BadCase).where(BadCase.id == case_id, BadCase.user_id == user_id))
+        if existing:
+            # A thumb-down is often followed by an optional reason. Keep one
+            # incident while allowing the first explanation to be filled in.
+            try:
+                original_input = json.loads(existing.input_json)
+            except ValueError:
+                original_input = None
+            if reason and isinstance(original_input, dict) and not original_input.get("reason"):
+                original_input["reason"] = reason[:1000]
+                existing.input_json = json.dumps(original_input, ensure_ascii=False)
+                session.commit()
             return case_id
         if target_type == "message":
             try:
