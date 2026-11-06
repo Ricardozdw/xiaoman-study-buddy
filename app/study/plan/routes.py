@@ -1,4 +1,4 @@
-"""计划线占位：目标、今天三件、建议、授权开关。"""
+"""计划线接口：目标、今天三件、建议、授权开关。今天三件走 service.py 的排程规则。"""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.study.common import store
 from app.study.common.http import missing, pack
+from app.study.plan import service
 
 router = APIRouter(tags=["计划"])
 
@@ -53,13 +54,13 @@ def current_goal(user_id: str = Depends(require_user)):
 
 @router.get("/api/plan/today")
 def today(user_id: str = Depends(require_user)):
-    return pack(store.plan_today(user_id))
+    return pack(service.plan_today(user_id))
 
 
 @router.patch("/api/plan/today")
 def today_intensity(body: IntensityPatch, user_id: str = Depends(require_user)):
     try:
-        data = store.set_intensity(user_id, body.intensity)
+        data = service.set_intensity(user_id, body.intensity)
     except ValueError as exc:
         return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
     return pack(data)
@@ -68,7 +69,7 @@ def today_intensity(body: IntensityPatch, user_id: str = Depends(require_user)):
 @router.patch("/api/tasks/{task_id}")
 def patch_task(task_id: str, body: TaskPatch, user_id: str = Depends(require_user)):
     try:
-        data = store.patch_task(user_id, task_id, status=body.status)
+        data = service.patch_task(user_id, task_id, status=body.status)
     except ValueError as exc:
         return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
     if data is None:
