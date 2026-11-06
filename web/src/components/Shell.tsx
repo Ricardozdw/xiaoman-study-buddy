@@ -1,8 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { mockDashboard, mockNotes, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, NoteItem, Permissions, PlanToday } from "../api/types";
 import { DashboardLine } from "../lines/dashboard/Placeholder";
+import { DashboardPanel, DashboardSummary } from "../lines/dashboard/Dashboard";
+import { fetchBoard, isDashboardRequest } from "../lines/dashboard/client";
+import { mergeDashboardTurns, type DashboardTurn } from "../lines/dashboard/conversation";
 import { MaterialsLine } from "../lines/materials/Placeholder";
 import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
@@ -36,7 +39,13 @@ export function Shell() {
   ]);
   const [draft, setDraft] = useState("");
   const qa = useQaConversation();
-  const { lectureId, setLectureId, busy } = qa;
+  const { lectureId, setLectureId } = qa;
+  const [dashboardTurns, setDashboardTurns] = useState<DashboardTurn[]>([]);
+  const [dashboardBusy, setDashboardBusy] = useState(false);
+  const dashboardRequest = useRef<AbortController | null>(null);
+  const busy = qa.busy || dashboardBusy;
+  const conversation = mergeDashboardTurns(qa.messages, dashboardTurns);
+  useEffect(() => () => dashboardRequest.current?.abort(), []);
   const effectiveLectureId = lectureId || qa.currentLectureId;
   const [sourceReference, setSourceReference] = useState<Reference | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
@@ -90,11 +99,11 @@ export function Shell() {
   useEffect(() => {
     const el = streamRef.current;
     if (!el) return;
-    const count = bubbles.length + qa.messages.length + cards.length;
+    const count = bubbles.length + qa.messages.length + dashboardTurns.length * 2 + cards.length;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
     if (count !== lastCount.current || nearBottom) el.scrollTop = el.scrollHeight;
     lastCount.current = count;
-  }, [bubbles, qa.messages, cards.length]);
+  }, [bubbles, qa.messages, dashboardTurns, cards.length]);
 
   // 暗色模式暂不做（以后作为换肤加回来），这里只管字号。
   useEffect(() => {
@@ -159,9 +168,30 @@ export function Shell() {
 
   async function send() {
     const text = draft.trim();
-    if (!text || busy || !qa.sessionReady) return;
+    if (!text || busy || dashboardRequest.current || !qa.sessionReady) return;
     setDraft("");
-    await qa.send(text);
+    if (!isDashboardRequest(text)) {
+      await qa.send(text);
+      return;
+    }
+    const id = crypto.randomUUID();
+    const controller = new AbortController();
+    dashboardRequest.current = controller;
+    setDashboardBusy(true);
+    setDashboardTurns((list) => [...list, { id, after: qa.messages.length, question: text }]);
+    try {
+      const dashboard = await fetchBoard(controller.signal);
+      setDashboardTurns((list) => list.map((turn) => turn.id === id ? { ...turn, board: dashboard } : turn));
+      setBoard(dashboard);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error ? error.message : "看板暂时没接上，请稍后重试。";
+        setDashboardTurns((list) => list.map((turn) => turn.id === id ? { ...turn, error: message } : turn));
+      }
+    } finally {
+      dashboardRequest.current = null;
+      setDashboardBusy(false);
+    }
   }
 
   async function handIn() {
@@ -304,7 +334,16 @@ export function Shell() {
                 {bubble.text}
               </Bubble>
             ))}
-            {qa.messages.map((answer) => <QaAnswer key={answer.id} answer={answer} active={answer.id === qa.messages.at(-1)?.id} onPlanChange={setPlan} onReference={(reference) => { setSourceReference(reference); setTab("page"); }} />)}
+            {conversation.map((entry, index) => entry.kind === "qa" ? (
+              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversation.length - 1} onPlanChange={setPlan} onReference={(reference) => { setSourceReference(reference); setTab("page"); }} />
+            ) : (
+              <Fragment key={entry.turn.id}>
+                <Bubble role="user">{entry.turn.question}</Bubble>
+                {entry.turn.board ? <DashboardSummary board={entry.turn.board} onOpen={() => setTab("board")} />
+                  : entry.turn.error ? <Bubble role="xiaoman">{entry.turn.error}</Bubble>
+                    : <p role="status">正在读取看板…</p>}
+              </Fragment>
+            ))}
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
             {cards.map((card) => (
               <StudyCardView
@@ -332,7 +371,7 @@ export function Shell() {
               aria-label="跟小满说一句"
             />
             <LecturePicker value={lectureId} onChange={setLectureId} lectures={qa.lectures} currentLectureId={qa.currentLectureId} disabled={busy} />
-            {busy && <Button onClick={qa.stop}>停止</Button>}
+            {qa.busy && <Button onClick={qa.stop}>停止</Button>}
             <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy || !qa.sessionReady} />
           </form>
           <p className="disclaimer">AI 整理，可以改 · 重要内容请对照原文</p>
@@ -357,13 +396,7 @@ export function Shell() {
               </div>
             )}
             {tab === "page" && (sourceReference ? <QaSourcePanel reference={sourceReference} /> : <pre className="page">{pageText}</pre>)}
-            {tab === "board" && (
-              <div>
-                <p>{board.note}</p>
-                <p>这周打开过 {board.studied_days} 天 · 做题 {board.attempt_count} · 待看错题 {board.mistakes_due}</p>
-                <p className="badge">{board.label}</p>
-              </div>
-            )}
+            {tab === "board" && <DashboardPanel onUpdate={setBoard} />}
             <section className="lines">
               <h3>五条线的位置</h3>
               <MaterialsLine />

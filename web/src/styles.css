@@ -271,6 +271,11 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   background: radial-gradient(ellipse at 100% 0%, #e7f2f780, transparent 66%), linear-gradient(140deg, var(--xm-card-bg-start) 0%, var(--xm-card-bg-middle) 55%, var(--xm-card-bg-end) 100%);
   box-shadow: 0 7px 22px #3a617008, inset 0 1px 0 #fff;
 }
+/* 地基时期的卡片写法（<header><h3>标题</h3><span class="badge">…</span></header>）照样能用 */
+.card > header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.card > header h3 { margin: 0; }
+.card > p { font-size: 14px; line-height: 1.7; color: #4f5d68; margin: 4px 0; }
+.card > .btn, .card > .btns { margin-top: 14px; }
 .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 9px; font-size: var(--aux); color: #647582; }
 .card-icon { width: 27px; height: 27px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e6f3f8, #dcebf2); box-shadow: inset 0 1px 0 #ffffff9c; color: #4f879d; }
 .card-icon .icon { width: 15px; height: 15px; }
