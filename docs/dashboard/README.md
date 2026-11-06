@@ -164,6 +164,16 @@ uvicorn app.study.dashboard.release:app --host 127.0.0.1 --port 8787
 docker build -f deploy/xiaoman/Dockerfile -t xiaoman-study .
 ```
 
+镜像也会复制 `web/public/`，包括 A 确认的小满原图。仅在已启动的隔离测试实例上运行：
+
+```bash
+python deploy/xiaoman/smoke_http.py --startup-timeout 60
+```
+
+启动等待以单调时钟计算期限；连接拒绝、瞬断和502/503/504会在期限内重试。健康接口必须返回有效JSON和 `ok=true`，其他HTTP错误立即失败。服务就绪后，逐项检查网页JS/CSS的真实类型和非空内容、小满PNG、匿名看板401、签名会话后的看板数据；这些功能检查失败后不重试。检查使用显式错误判断，`python -O` 也不能跳过。
+
+本线CI在PR和main提交上运行，同一PR的新提交取消旧检查，避免分支push与PR重复构建。容器检查按步骤保存结果；失败时补充带时间的容器日志和退出状态，在 Actions 的 `dashboard-container-smoke` 产物中保留7天。日志不输出Cookie、模型凭据或健康接口的配置正文。原有底座流程及测试保持原样。
+
 `deploy/xiaoman/render.yaml` 是**手动部署提案**，自动部署关闭。包含付费磁盘配置；A 决定预算与目标后才创建。仅用 Supabase 不足以保存本机 audit、checkpoint 和尚未迁移的上传文件，因此仍需持久磁盘。原免费蓝图没有这个保障。
 
 数据库准备：原学习表只有 SQLite 自动创建，原 schema.sql 只是权限意图。`study_schema.py` 依据现有模型生成 18 张学习表与独立 RLS SQL 草案，不连接数据库、不执行权限变更，不并入底座 RLS 迁移。A 先审阅表名、现有策略、app/system 运行角色和 Supabase Data API 设置，在隔离测试库验证后再决定应用。基础角色初始化见 `docs/postgres-rls.md`，运行连接不能使用 owner/service_role 或绕过 RLS 的角色。
