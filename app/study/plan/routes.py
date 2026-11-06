@@ -30,6 +30,11 @@ class IntensityPatch(BaseModel):
     intensity: str = Field(description="light 轻松 / normal 正常 / sprint 冲刺")
 
 
+class AcceptBody(BaseModel):
+    option: Optional[str] = Field(default=None, description="选了卡上的哪个选项；只有一个选项时可以不填")
+    exam_date: Optional[str] = Field(default=None, description="选“考试日期变了”时带上新日期 YYYY-MM-DD")
+
+
 class DemoStep(BaseModel):
     days: int = Field(description="往后跳几天：1 跳到明天，2 跳过两天，8 跳过 8 天")
 
@@ -87,8 +92,29 @@ def suggestions(user_id: str = Depends(require_user)):
 
 
 @router.post("/api/suggestions/{action_id}/accept")
-def accept(action_id: str, user_id: str = Depends(require_user)):
-    data = store.accept_suggestion(user_id, action_id)
+def accept(action_id: str, body: Optional[AcceptBody] = None, user_id: str = Depends(require_user)):
+    """计划线的卡（中断后回来）走 service；地基那条样例建议仍走原来的。"""
+    if service.is_plan_card(user_id, action_id):
+        try:
+            data = service.accept_card(
+                user_id, action_id, option=body.option if body else None, exam_date=body.exam_date if body else None
+            )
+        except service.CardError as exc:
+            return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    else:
+        data = store.accept_suggestion(user_id, action_id)
+    if data is None:
+        missing()
+    return pack(data)
+
+
+@router.post("/api/suggestions/{action_id}/dismiss")
+def dismiss(action_id: str, user_id: str = Depends(require_user)):
+    """先不用：什么都不改，卡收起。只用于计划线的卡。"""
+    try:
+        data = service.dismiss_card(user_id, action_id)
+    except service.CardError as exc:
+        return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
     if data is None:
         missing()
     return pack(data)
@@ -96,7 +122,13 @@ def accept(action_id: str, user_id: str = Depends(require_user)):
 
 @router.post("/api/actions/{action_id}/undo")
 def undo(action_id: str, user_id: str = Depends(require_user)):
-    data = store.undo_action(user_id, action_id)
+    if service.is_plan_card(user_id, action_id):
+        try:
+            data = service.undo_card(user_id, action_id)
+        except service.CardError as exc:
+            return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    else:
+        data = store.undo_action(user_id, action_id)
     if data is None:
         missing()
     return pack(data)

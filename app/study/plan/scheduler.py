@@ -66,6 +66,9 @@ class PlanInputs:
     lectures: tuple[LectureState, ...] = ()
     mistakes: tuple[MistakeItem, ...] = ()
     reviews: tuple[ReviewItem, ...] = ()
+    # 中断后回来选了补法时：一次学两讲。mode 是 sprint（冲刺补课）或 skim（只看要点）。
+    learn_per_task: int = 1
+    learn_mode: str = ""
 
 
 @dataclass
@@ -83,20 +86,23 @@ def _lecture_map(inputs: PlanInputs) -> dict[int, LectureState]:
 
 def _learn_candidates(inputs: PlanInputs) -> list[TaskDraft]:
     lectures = _lecture_map(inputs)
+    per_task = 2 if inputs.learn_per_task >= 2 else 1
+    numbers = list(range(inputs.learned_up_to + 1, inputs.lecture_count + 1))
     out: list[TaskDraft] = []
-    for number in range(inputs.learned_up_to + 1, inputs.lecture_count + 1):
-        state = lectures.get(number)
-        out.append(
-            TaskDraft(
-                "learn",
-                {
-                    "source": "lecture" if state and state.has_material else "upload",
-                    "lecture_no": number,
-                    "lecture_id": state.lecture_id if state else lecture_id_for(number),
-                },
-            )
-        )
-        if len(out) >= 2:  # 一天最多学两讲新的，再多就不合理了
+    for start in range(0, len(numbers), per_task):
+        group = numbers[start : start + per_task]
+        states = [lectures.get(n) for n in group]
+        ready = all(state is not None and state.has_material for state in states)
+        ref: dict[str, Any] = {
+            "source": "lecture" if ready else "upload",
+            "lecture_no": group[0],
+            "lecture_id": states[0].lecture_id if states[0] else lecture_id_for(group[0]),
+        }
+        if per_task == 2:
+            ref["lecture_nos"] = group
+            ref["mode"] = inputs.learn_mode or "sprint"
+        out.append(TaskDraft("learn", ref))
+        if len(out) >= 2:  # 一天最多两件学新的，再多就不合理了
             break
     return out
 
@@ -216,7 +222,11 @@ def describe(kind: str, ref: dict[str, Any], intensity: str) -> dict[str, str]:
     """返回 title / amount / reason / done_when。强度变了重新算，不改件数。"""
     level = intensity if intensity in PRACTICE_COUNT else "normal"
     no = ref.get("lecture_no")
-    lecture = f"第 {no} 讲" if no else "这一讲"
+    nos = ref.get("lecture_nos") or []
+    if len(nos) >= 2:
+        lecture = f"第 {nos[0]}、{nos[-1]} 讲"
+    else:
+        lecture = f"第 {no} 讲" if no else "这一讲"
     source = ref.get("source")
     if kind == "learn" and source == "upload":
         return {
@@ -224,6 +234,20 @@ def describe(kind: str, ref: dict[str, Any], intensity: str) -> dict[str, str]:
             "amount": "交上来就算完成，小满会整理成学习文档",
             "reason": f"按进度该学{lecture}了，先把课件交上来",
             "done_when": "课件交上来",
+        }
+    if kind == "learn" and ref.get("mode") == "skim":
+        return {
+            "title": f"学{lecture}",
+            "amount": "只看要点",
+            "reason": "按选好的补法，这几讲先看要点",
+            "done_when": "看完就算完成",
+        }
+    if kind == "learn" and len(nos) >= 2:
+        return {
+            "title": f"学{lecture}",
+            "amount": LEARN_AMOUNT[level],
+            "reason": "按选好的补法，这几天一次学两讲",
+            "done_when": "看完就算完成",
         }
     if kind == "learn":
         return {
@@ -266,6 +290,23 @@ def describe(kind: str, ref: dict[str, Any], intensity: str) -> dict[str, str]:
 
 def lecture_id_for(number: int) -> str:
     return f"lec-{number}"
+
+
+def last_lecture_no(ref: dict[str, Any]) -> Optional[int]:
+    """一件学新的覆盖到第几讲（一次两讲时取后一讲）。"""
+    nos = [n for n in (ref.get("lecture_nos") or []) if isinstance(n, int)]
+    if nos:
+        return max(nos)
+    no = ref.get("lecture_no")
+    return no if isinstance(no, int) else None
+
+
+def first_lecture_no(ref: dict[str, Any]) -> Optional[int]:
+    nos = [n for n in (ref.get("lecture_nos") or []) if isinstance(n, int)]
+    if nos:
+        return min(nos)
+    no = ref.get("lecture_no")
+    return no if isinstance(no, int) else None
 
 
 def lecture_no_for(lecture_id: str) -> Optional[int]:
