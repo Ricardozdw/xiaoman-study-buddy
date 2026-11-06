@@ -29,7 +29,9 @@ from app.study.common.models import (
     PlanDay,
     PlanTask,
     Question,
+    StudyEvent,
     StudyFile,
+    _now,
 )
 from app.study.plan import daily, demo, returning, scheduler
 from app.study.plan.scheduler import (
@@ -234,7 +236,7 @@ def _remember_progress(goal: Optional[Goal], learned_up_to: int) -> None:
 def _add_drafts(session, user_id: str, plan: PlanDay, drafts, *, keep: list[PlanTask]) -> None:
     """把排程结果写进当天计划。keep 是已完成、要保留的任务；总数不超过三件。"""
     room = scheduler.MAX_TASKS - len(keep)
-    kept_refs = [(_row.kind, _loads(_row.ref_json, {})) for _row in keep]
+    kept_refs = [(_row.kind, _strip_since(_loads(_row.ref_json, {}))) for _row in keep]
     order = len(keep)
     tag = uuid.uuid4().hex[:6]
     for draft in drafts:
@@ -253,12 +255,99 @@ def _add_drafts(session, user_id: str, plan: PlanDay, drafts, *, keep: list[Plan
                 day=plan.day,
                 kind=draft.kind,
                 title=text["title"],
-                ref_json=json.dumps(draft.ref, ensure_ascii=False),
+                # since：排进来的时间，之后的作答 / 交资料才算“做了这一件”（自动勾上用）
+                ref_json=json.dumps(dict(draft.ref, since=_now()), ensure_ascii=False),
                 done_when=text["done_when"],
                 status="todo",
                 sort_order=order,
             )
         )
+
+
+def _strip_since(ref: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in ref.items() if key != "since"}
+
+
+def _advance_progress(session, user_id: str, row: PlanTask, status: str) -> None:
+    """勾完“学新的”推进进度（一次两讲时推进到后一讲）；取消勾选时退回。"""
+    ref = _loads(row.ref_json, {})
+    last, first = scheduler.last_lecture_no(ref), scheduler.first_lecture_no(ref)
+    if row.kind != "learn" or last is None or first is None or status not in ("done", "todo"):
+        return
+    goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
+    if goal is None:
+        return
+    current = _loads(goal.summary_json, {}).get("learned_up_to")
+    current = current if isinstance(current, int) else 0
+    if status == "done" and last > current:
+        _remember_progress(goal, last)
+    elif status == "todo" and current == last:
+        _remember_progress(goal, first - 1)
+
+
+def _auto_complete(session, user_id: str, plan: PlanDay) -> list[str]:
+    """做了就自动勾上（PRD F5，产品规则 5：做了就算完成，对错不影响）。
+
+    - 学新的·交课件：这一讲的资料处理好了（资料线 files.parse_status == ready）
+    - 练一练：排进来之后，这一讲答过的题数够了（这一档的题数，题不够时以现有题数为准）
+    - 补一补·重做错题：排进来之后，列出的错题都重新答过一次（答对答错都算）
+    看要点、复习知识点这类没有记录可查的，仍由用户自己勾。只读资料线和练习线的表。
+    """
+    todo = [task for task in _plan_tasks(session, user_id, plan.id) if task.status == "todo"]
+    if not todo:
+        return []
+    ready = set(
+        session.scalars(
+            select(StudyFile.lecture_id).where(StudyFile.user_id == user_id, StudyFile.parse_status == "ready")
+        ).all()
+    )
+    questions = {
+        row.id: row.lecture_id for row in session.scalars(select(Question).where(Question.user_id == user_id)).all()
+    }
+    attempts = session.execute(
+        select(Attempt.question_id, Attempt.created_at).where(Attempt.user_id == user_id)
+    ).all()
+    finished: list[str] = []
+    for task in todo:
+        ref = _loads(task.ref_json, {})
+        since = str(ref.get("since") or "")
+        source = ref.get("source")
+        if not since:
+            continue
+        done = False
+        if task.kind == "learn" and source == "upload":
+            nos = ref.get("lecture_nos") or [ref.get("lecture_no")]
+            ids = [ref.get("lecture_id")] if len(nos) == 1 else [scheduler.lecture_id_for(n) for n in nos if n]
+            done = bool(ids) and all(lecture_id in ready for lecture_id in ids)
+        elif task.kind == "practice":
+            lecture_id = ref.get("lecture_id")
+            total = sum(1 for lid in questions.values() if lid == lecture_id)
+            answered = {qid for qid, at in attempts if questions.get(qid) == lecture_id and (at or "") >= since}
+            need = min(scheduler.PRACTICE_COUNT.get(plan.intensity, 5), total)
+            done = total > 0 and len(answered) >= need
+        elif task.kind == "repair" and source == "mistakes":
+            wanted = set(ref.get("question_ids") or [])
+            redone = {qid for qid, at in attempts if qid in wanted and (at or "") >= since}
+            done = bool(wanted) and redone == wanted
+        if done:
+            task.status = "done"
+            session.add(
+                StudyEvent(
+                    id=uuid.uuid4().hex,
+                    user_id=user_id,
+                    name="task_status",
+                    at=_now(),
+                    props_json=json.dumps({"task_id": task.id, "status": "done", "auto": True}, ensure_ascii=False),
+                )
+            )
+            _advance_progress(session, user_id, task, "done")
+            finished.append(task.id)
+    return finished
+
+
+def sync_today(user_id: str) -> list[str]:
+    """资料线 / 练习线做完一件事后可以调这个（或前端重新拉 /api/plan/today），对应任务自动勾上。"""
+    return plan_today(user_id)["auto_completed"]
 
 
 def _last_open_before(session, user_id: str, day: str) -> Optional[date]:
@@ -612,6 +701,10 @@ def plan_today(user_id: str) -> dict[str, Any]:
     with SessionLocal() as session:
         plan = session.get(PlanDay, plan_id)
         assert plan is not None
+        auto = _auto_complete(session, user_id, plan)
+        if auto:
+            session.commit()
+            plan = session.get(PlanDay, plan_id)
         tasks = _plan_tasks(session, user_id, plan_id)
         label, minutes = INTENSITY.get(plan.intensity, INTENSITY[DEFAULT_INTENSITY])
         items = [
@@ -645,6 +738,7 @@ def plan_today(user_id: str) -> dict[str, Any]:
             "tasks": items,
             "first_task_id": first,
             "all_done": all_done,
+            "auto_completed": auto,
             "card": _card_view(card) if card is not None else None,
             "undoable": _undo_view(_undoable_card(session, user_id, plan.day)),
             "done_card": done,
@@ -701,20 +795,9 @@ def patch_task(user_id: str, task_id: str, *, status: Optional[str] = None) -> O
             return None
         plan = session.get(PlanDay, row.plan_day_id)
         intensity = plan.intensity if plan else DEFAULT_INTENSITY
-        ref = _loads(row.ref_json, {})
-        last = scheduler.last_lecture_no(ref)
-        first = scheduler.first_lecture_no(ref)
-        if row.kind == "learn" and last is not None and first is not None and status in ("done", "todo"):
-            goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
-            if goal is not None:
-                summary = _loads(goal.summary_json, {})
-                current = summary.get("learned_up_to")
-                current = current if isinstance(current, int) else 0
-                if status == "done" and last > current:
-                    _remember_progress(goal, last)
-                elif status == "todo" and current == last:
-                    _remember_progress(goal, first - 1)
-                session.commit()
+        if status in ("done", "todo"):
+            _advance_progress(session, user_id, row, status)
+            session.commit()
         data = _task_view(row, intensity)
         task_day = row.day
     today = plan_today(user_id)
