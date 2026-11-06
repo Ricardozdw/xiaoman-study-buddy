@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.auth import require_user
 from app.study.common import store
 from app.study.common.http import missing, pack
-from app.study.plan import demo, service
+from app.study.plan import demo, goal, service
 
 router = APIRouter(tags=["计划"])
 
@@ -20,6 +20,21 @@ class GoalBody(BaseModel):
     exam_date: str = ""
     lecture_count: int = 0
     daily_minutes: int = 0
+
+
+class GoalDraftBody(BaseModel):
+    """目标拆解的回答。没答或跳过的项不填；听不懂的按默认值，并在卡上写明“先按……安排”。"""
+
+    title: Optional[str] = None
+    exam_date: Optional[str] = Field(default=None, description="自由输入，如“12月20日”“两个月后”“还没定”")
+    lecture_count: Optional[str] = Field(default=None, description="如“12 讲”“十二讲”")
+    learned_up_to: Optional[str] = Field(default=None, description="如“第 3 讲”“还没开始”")
+    daily_minutes: Optional[str] = Field(default=None, description="如“30 分钟”“半小时”")
+    intensity: Optional[str] = Field(default=None, description="可选：light / normal / sprint")
+
+
+class ReviseBody(BaseModel):
+    text: str = Field(description="一句话说怎么改，如“考试改到 12 月 20 日”")
 
 
 class TaskPatch(BaseModel):
@@ -45,8 +60,9 @@ class PermissionPatch(BaseModel):
 
 @router.post("/api/goals")
 def save_goal(body: GoalBody, user_id: str = Depends(require_user)):
+    """用户自己直接改目标：直接生效（不经过拆解卡）。"""
     return pack(
-        store.save_goal(
+        goal.save_direct(
             user_id,
             title=body.title,
             exam_date=body.exam_date,
@@ -58,7 +74,31 @@ def save_goal(body: GoalBody, user_id: str = Depends(require_user)):
 
 @router.get("/api/goals/current")
 def current_goal(user_id: str = Depends(require_user)):
-    return pack(store.goals_current(user_id))
+    return pack(goal.current(user_id))
+
+
+@router.get("/api/goals/questions")
+def goal_questions(user_id: str = Depends(require_user)):
+    """第一次见面问的几道题，每题带快捷回复。一次问一题。"""
+    return pack(goal.questions())
+
+
+@router.post("/api/goals/draft")
+def goal_draft(body: GoalDraftBody, user_id: str = Depends(require_user)):
+    """按回答出一张目标拆解卡。点“好”（accept）才生效。"""
+    return pack(goal.draft(user_id, body.model_dump()))
+
+
+@router.post("/api/goals/draft/{action_id}/revise")
+def goal_revise(action_id: str, body: ReviseBody, user_id: str = Depends(require_user)):
+    """“说说怎么改”：一句话改，出一张新卡替换旧卡。"""
+    try:
+        data = goal.revise(user_id, action_id, body.text)
+    except service.CardError as exc:
+        return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    if data is None:
+        missing()
+    return pack(data)
 
 
 @router.get("/api/plan/today")
@@ -94,7 +134,13 @@ def suggestions(user_id: str = Depends(require_user)):
 @router.post("/api/suggestions/{action_id}/accept")
 def accept(action_id: str, body: Optional[AcceptBody] = None, user_id: str = Depends(require_user)):
     """计划线的卡（中断后回来）走 service；地基那条样例建议仍走原来的。"""
-    if service.is_plan_card(user_id, action_id):
+    kind = service.card_kind(user_id, action_id)
+    if kind == goal.KIND_GOAL_SETUP:
+        try:
+            data = goal.accept(user_id, action_id)
+        except service.CardError as exc:
+            return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    elif kind is not None:
         try:
             data = service.accept_card(
                 user_id, action_id, option=body.option if body else None, exam_date=body.exam_date if body else None
@@ -122,7 +168,13 @@ def dismiss(action_id: str, user_id: str = Depends(require_user)):
 
 @router.post("/api/actions/{action_id}/undo")
 def undo(action_id: str, user_id: str = Depends(require_user)):
-    if service.is_plan_card(user_id, action_id):
+    kind = service.card_kind(user_id, action_id)
+    if kind == goal.KIND_GOAL_SETUP:
+        try:
+            data = goal.undo(user_id, action_id)
+        except service.CardError as exc:
+            return pack({"message": str(exc)}, ok=False, status="invalid", code=422)
+    elif kind is not None:
         try:
             data = service.undo_card(user_id, action_id)
         except service.CardError as exc:

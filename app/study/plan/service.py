@@ -306,8 +306,12 @@ def ensure_today_plan(user_id: str) -> str:
         goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
         if inputs.goal_active:
             _remember_progress(goal, inputs.learned_up_to)
-        if new_day and inputs.learn_mode == "sprint":
-            plan.intensity = "sprint"  # 选了“几天冲刺”的补法，这几天默认冲刺
+        if new_day:
+            # 新的一天：强度回到目标定的默认档；选了“几天冲刺”的补法时，这几天默认冲刺。
+            default = _loads(goal.summary_json, {}).get("default_intensity") if goal else None
+            plan.intensity = default if default in INTENSITY else DEFAULT_INTENSITY
+            if inputs.learn_mode == "sprint":
+                plan.intensity = "sprint"
         _add_drafts(session, user_id, plan, scheduler.schedule(inputs), keep=[])
 
         if new_day:
@@ -377,7 +381,8 @@ def _card_view(row: AgentAction) -> dict[str, Any]:
             {key: value for key, value in option.items() if key != "effect"}
             for option in meta.get("options", [])
         ],
-        "chosen": meta.get("chosen"),
+        "chosen": meta.get("chosen_option") or (meta.get("chosen") if isinstance(meta.get("chosen"), str) else None),
+        "phases": (meta.get("breakdown") or {}).get("phases"),
         "status": row.status,
     }
 
@@ -395,6 +400,20 @@ def _pending_card(session, user_id: str, day: str) -> Optional[AgentAction]:
 def is_plan_card(user_id: str, action_id: str) -> bool:
     with SessionLocal() as session:
         return _is_plan_card(session.get(AgentAction, action_id), user_id)
+
+
+def card_kind(user_id: str, action_id: str) -> Optional[str]:
+    """计划线卡片的种类；不是计划线的卡返回 None。"""
+    with SessionLocal() as session:
+        row = session.get(AgentAction, action_id)
+        return str(_card_meta(row).get("kind")) if _is_plan_card(row, user_id) else None
+
+
+def needs_setup(goal: Optional[Goal]) -> bool:
+    """还没在目标拆解卡上点过“好”（或撤销了），前端该开始问目标。"""
+    if goal is None:
+        return True
+    return goal.status == "draft" or not _loads(goal.summary_json, {}).get("confirmed")
 
 
 def _snapshot(plan: PlanDay, goal: Goal) -> dict[str, Any]:
@@ -584,6 +603,7 @@ def plan_today(user_id: str) -> dict[str, Any]:
         ]
         first = next((item["id"] for item in items if item["status"] == "todo"), None)
         card = _pending_card(session, user_id, plan.day)
+        goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
         return {
             "date": plan.day,
             "intensity": plan.intensity,
@@ -593,6 +613,7 @@ def plan_today(user_id: str) -> dict[str, Any]:
             "first_task_id": first,
             "all_done": bool(items) and first is None,
             "card": _card_view(card) if card is not None else None,
+            "needs_setup": needs_setup(goal),
             "label": "模拟",
         }
 
