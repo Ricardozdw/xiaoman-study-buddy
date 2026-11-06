@@ -1,0 +1,24 @@
+{
+  "models": {
+    "practice-deepseek-pro": {
+      "model": "deepseek-v4-pro",
+      "protocol": "openai",
+      "vendor": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "params": { "thinking": { "type": "disabled" } }
+    },
+    "practice-qwen-plus": {
+      "model": "qwen3.7-plus",
+      "protocol": "openai",
+      "vendor": "qwen",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "params": { "enable_thinking": false }
+    }
+  },
+  "tiers": {
+    "fast": ["practice-deepseek-pro", "practice-qwen-plus"],
+    "strong": ["practice-deepseek-pro", "practice-qwen-plus"]
+  }
+}
