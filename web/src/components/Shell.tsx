@@ -18,9 +18,10 @@ import { StudyCardView } from "./cards/StudyCardView";
 import { getStatus } from "../lines/v2/api";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
 import { subscribeGoalDone } from "../lines/v2/done";
-import { AcceptedOutlineBar, GoalFlowV2 } from "../lines/v2/GoalFlowV2";
+import { AcceptedOutlineBar } from "../lines/v2/GoalFlowV2";
 import { OUTLINE_BADGE, answerUsesOutlineSource } from "../lines/v2/source";
 import { V2Cards } from "../lines/v2/V2Cards";
+import { LectureCard } from "../lines/v2/LectureCard";
 import { Badge, Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
@@ -86,6 +87,7 @@ export function Shell() {
   const [compact, setCompact] = useState(false);
   // 只读一次。404 或连不上时 getStatus 为 false，对话仍走计划线原来的定目标。
   const [v2Enabled, setV2Enabled] = useState<boolean | null>(null);
+  const [activeLecture, setActiveLecture] = useState<{ unitNo: number; taskId: string } | null>(null);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -250,7 +252,6 @@ export function Shell() {
   }
 
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
-  const showV2Goal = source === "api" && v2Enabled === true && plan.needs_setup === true;
   const waitForV2 = source === "api" && v2Enabled === null && plan.needs_setup === true;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
@@ -312,6 +313,11 @@ export function Shell() {
                       {done && <Icon name="check" />}
                     </span>
                   </button>
+                  {!done && task.kind === "learn" && task.ref?.source === "lecture" && (
+                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setActiveLecture({ unitNo: task.ref!.lecture_no!, taskId: task.id }); setRail(false); }}>
+                      学这一讲
+                    </Button>
+                  )}
                   {!done && task.kind === "learn" && task.ref?.source === "upload" && task.ref.lecture_id && (
                     <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setPinnedUpload(task.ref!.lecture_id!); materials.current?.chooseFile(); }}>
                       交资料
@@ -398,10 +404,13 @@ export function Shell() {
           </div>
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
-            {showV2Goal && <GoalFlowV2 today={plan.date} />}
-            {source === "api" && !waitForV2 && !showV2Goal && <PlanLine inChat showDemo={DEV} />}
-            {source === "api" && v2Enabled === true && !showV2Goal && <AcceptedOutlineBar today={plan.date} />}
+            {source === "api" && v2Enabled === true && plan.needs_setup === true && <Bubble role="xiaoman">我是小满。说说你想学成什么样，我帮你拆成每天的小任务。</Bubble>}
+            {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} />}
+            {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
             {v2Enabled && <V2Cards doneCount={doneCount} />}
+            {activeLecture && (
+              <LectureCard unitNo={activeLecture.unitNo} onDone={() => { void toggleTask(activeLecture.taskId, "todo"); setActiveLecture(null); }} />
+            )}
             {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}
@@ -429,7 +438,7 @@ export function Shell() {
                 {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
                   <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
                 )}
-                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
               </Fragment>
             ) : (
               <Fragment key={entry.turn.id}>

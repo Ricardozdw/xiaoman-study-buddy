@@ -30,9 +30,9 @@ http://127.0.0.1:5173/src/lines/practice/preview.html
 
 ## 本机模型与样例
 
-用户已选定 `deepseek-v4-pro` 主用、`qwen3.7-plus` 备用，见本目录 `models.json`。FAST / STRONG 两档都按同一顺序自动降级，不改底座模型网关。
+主备模型已统一（见 `deploy/xiaoman/models.example.json`）：快档 `deepseek-chat` 主 / `qwen-plus` 备，强档 `deepseek-reasoner` 主 / `kimi-k3` 备，均经底座网关 tier 自动降级。
 
-本机 `.env` 设置 `LLM_CONFIG_FILE=app/study/practice/models.json`；密钥填在已有的 `DEEPSEEK_API_KEY` 和 `DASHSCOPE_API_KEY` 中。默认按 DeepSeek 官方和阿里云百炼中国内地接口准备；其他服务平台或区域需要调整对应 base_url。真实连通性和思考参数仍须实测确认。
+本机 `.env` 设 `LLM_CONFIG_FILE=deploy/xiaoman/models.example.json` 启用主备降级链；密钥填 `DEEPSEEK_API_KEY`（快+强档主）、`DASHSCOPE_API_KEY`（快档备）、`KIMI_API_KEY`（强档备）。真实连通性和思考参数仍须实测确认。
 
 测试 PDF 及按页文字只保存在被 Git 忽略的 `data/practice/samples/` 中，不上传仓库。可用下面的本地工具给指定测试会话导入资料页（不调用模型，不替代资料线上传功能）：
 

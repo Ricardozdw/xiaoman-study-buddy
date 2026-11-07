@@ -5,6 +5,8 @@ import type { PlanCard } from "../plan/types";
 import type { PlanToday } from "../../api/types";
 import type { Answer, Handoff, Lecture, Reference } from "./types";
 import { requestJson, loadSource, submitPlanDecision } from "./transport";
+import { OutlineCard } from "../v2/OutlineCard";
+import { acceptOutline, patchOutline, type OutlineView, type UnitInput } from "../v2/api";
 export { useQaConversation } from "./useQaConversation";
 export type { Answer, Reference, Lecture } from "./types";
 
@@ -47,7 +49,7 @@ export function CitedText({ answer, onReference }: { answer: Answer; onReference
   })}</span>;
 }
 
-export function QaAnswer({ answer, onReference, onPlanChange, active = true }: { answer: Answer; onReference: (ref: Reference) => void; onPlanChange?: (plan: PlanToday) => void; active?: boolean }) {
+export function QaAnswer({ answer, onReference, onPlanChange, onQuickReply, active = true }: { answer: Answer; onReference: (ref: Reference) => void; onPlanChange?: (plan: PlanToday) => void; onQuickReply?: (text: string) => void; active?: boolean }) {
   const [rating, setRating] = useState<"up" | "down" | null>(null);
   const [reason, setReason] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
@@ -75,12 +77,51 @@ export function QaAnswer({ answer, onReference, onPlanChange, active = true }: {
     </div>}
     {showReason && <form onSubmit={event => { event.preventDefault(); void feedback("down"); }}><label>哪里不对（可不填）<input aria-label="哪里不对" maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label><Button type="submit" disabled={saving}>提交反馈</Button><Button type="button" disabled={saving} onClick={() => setShowReason(false)}>取消</Button></form>}
     {feedbackStatus && <p role="status">{feedbackStatus}</p>}
-    {answer.handoff && answer.status === "done" && <QaHandoff active={active} handoff={answer.handoff} onPlanChange={onPlanChange} />}
+    {answer.handoff && answer.status === "done" && <QaHandoff active={active} handoff={answer.handoff} onPlanChange={onPlanChange} onQuickReply={onQuickReply} />}
   </div>;
 }
 
-export function QaHandoff({ handoff, onPlanChange, active = true }: { handoff: Handoff; active?: boolean; onPlanChange?: (plan: PlanToday) => void }) {
+export function QaHandoff({ handoff, onPlanChange, onQuickReply, active = true }: { handoff: Handoff; active?: boolean; onPlanChange?: (plan: PlanToday) => void; onQuickReply?: (text: string) => void }) {
+  if (handoff.intent === "goal") {
+    return <GoalOutlineHandoff data={handoff.data} active={active} onQuickReply={onQuickReply} />;
+  }
   return handoff.intent === "plan" && handoff.data.card ? <NativePlanCard initial={handoff.data.card} active={active} onPlanChange={onPlanChange} /> : <LegacyHandoff handoff={handoff} active={active} onPlanChange={onPlanChange} />;
+}
+
+function GoalOutlineHandoff({ data, active, onQuickReply }: { data: Handoff["data"]; active: boolean; onQuickReply?: (text: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [dismissed, setDismissed] = useState(false);
+  const outline = data.outline as OutlineView | undefined;
+  if (dismissed) return <p className="aux">已收起。今天的安排没有变。</p>;
+  if (outline) {
+    async function patch(units: UnitInput[]) {
+      setBusy(true); setError("");
+      const result = await patchOutline(outline!.id, units);
+      setBusy(false);
+      if (!result.ok) setError(result.message);
+      return result.ok;
+    }
+    async function accept() {
+      setBusy(true); setError("");
+      const result = await acceptOutline(outline!.id);
+      if (!result.ok) { setError(result.message); setBusy(false); return; }
+      window.location.reload();
+    }
+    return <OutlineCard outline={outline} busy={busy} error={error} onPatch={patch} onAccept={() => void accept()} onDismiss={() => setDismissed(true)} />;
+  }
+  if (data.question && data.options) {
+    return <Card as="section" aria-label="定目标">
+      <h3>定目标</h3>
+      <p>{data.question}</p>
+      <div className="btns">
+        {data.options.map((option) => (
+          <Button key={option} disabled={!active || !onQuickReply} onClick={() => onQuickReply?.(option)}>{option}</Button>
+        ))}
+      </div>
+    </Card>;
+  }
+  return <Card as="section" aria-label="定目标"><h3>定目标</h3><p>好，我们来定「{data.goal}」。</p></Card>;
 }
 function LegacyHandoff({ handoff, onPlanChange, active = true }: { handoff: Handoff; active?: boolean; onPlanChange?: (plan: PlanToday) => void }) {
   const [status, setStatus] = useState(handoff.data.status || "pending");

@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import assessment, completion, service
+from . import assessment, completion, lecture, service
 from .outline import Unit
 
 router = APIRouter()
@@ -30,6 +30,23 @@ class DraftBody(BaseModel):
 
 class PatchBody(BaseModel):
     units: list[Unit] = Field(min_length=1, max_length=20)
+
+
+class LectureBody(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    unit_no: int = Field(ge=1)
+
+
+@router.post("/api/v2/lecture")
+def unit_lecture(body: LectureBody, user_id: str = Depends(require_user)):
+    outline_id = lecture.current_outline_id(user_id)
+    if not outline_id:
+        raise HTTPException(409, "还没有确认大纲")
+    try:
+        data, mock = lecture.generate(user_id, outline_id, body.unit_no, {})
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return pack(data, mock=mock)
 
 
 def _pack_outline(data):

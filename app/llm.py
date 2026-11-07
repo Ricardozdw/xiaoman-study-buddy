@@ -95,7 +95,7 @@ def _max_retries() -> int:
 def _default_model(tier: ModelTier) -> str:
     if tier == ModelTier.FAST:
         return _env("MODEL_FAST", "OPENAI_MODEL_FAST") or "deepseek-chat"
-    return _env("MODEL_STRONG", "OPENAI_MODEL_STRONG") or "kimi-k3"
+    return _env("MODEL_STRONG", "OPENAI_MODEL_STRONG") or "deepseek-reasoner"
 
 
 def _tier_prefix(tier: ModelTier) -> str:

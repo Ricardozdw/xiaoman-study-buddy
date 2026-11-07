@@ -76,7 +76,7 @@ def test_opening_and_undo_do_not_erase_learning(person):
 
 
 def test_usage_uses_reported_tokens_and_does_not_fabricate_price(person):
-    for model, estimated in [("deepseek-flash", False), ("unknown-model", False), ("deepseek-flash", True)]:
+    for model, estimated in [("deepseek-chat", False), ("unknown-model", False), ("deepseek-chat", True)]:
         record_call(user_id=person, capability="问答", prompt_name="qa.answer", prompt_version="v1", model=model,
                     prompt_tokens=1000000, completion_tokens=1000000, latency_ms=10, ok=True, estimated=estimated)
     data = usage_summary(person)
@@ -120,19 +120,19 @@ def test_gateway_attempts_are_attributed_to_actual_models(monkeypatch, person):
     class Answer(BaseModel):
         verdict: str
 
-    result=Result(content='```json\n{"verdict":"pass"}\n```', spec=ModelSpec(id="backup", model="deepseek-v4-pro"), attempts=[
-        {"model":"deepseek-flash","prompt_tokens":None,"completion_tokens":None,"latency_ms":10,"ok":False,"error":"timeout"},
-        {"model":"deepseek-v4-pro","prompt_tokens":100,"completion_tokens":20,"latency_ms":30,"ok":True,"error":""},
+    result=Result(content='```json\n{"verdict":"pass"}\n```', spec=ModelSpec(id="backup", model="deepseek-reasoner"), attempts=[
+        {"model":"deepseek-chat","prompt_tokens":None,"completion_tokens":None,"latency_ms":10,"ok":False,"error":"timeout"},
+        {"model":"deepseek-reasoner","prompt_tokens":100,"completion_tokens":20,"latency_ms":30,"ok":True,"error":""},
     ])
     monkeypatch.setattr("app.study.dashboard.telemetry.core.complete", lambda *args, **kwargs:result)
     assert tracked_json(user_id=person, capability="评测复核",prompt_name="dashboard.eval",prompt_version="v1",payload={"public_sample":True},response_model=Answer).verdict == "pass"
     groups=usage_summary(person)["groups"]
     assert len(groups) == 2
-    assert next(g for g in groups if g["model"] == "deepseek-flash")["estimated_calls"] == 1
+    assert next(g for g in groups if g["model"] == "deepseek-chat")["estimated_calls"] == 1
     with SessionLocal() as session:
         from sqlalchemy import select
         case=session.scalar(select(BadCase).where(BadCase.user_id == person))
-        assert case.model == "deepseek-flash" and case.prompt_version == "dashboard.eval@v1"
+        assert case.model == "deepseek-chat" and case.prompt_version == "dashboard.eval@v1"
 
 
 def test_plan_progress_and_demo_clock_share_the_same_day(monkeypatch, person):

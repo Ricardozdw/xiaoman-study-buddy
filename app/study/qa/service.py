@@ -164,7 +164,12 @@ def _conversation_events(user_id: str, message: str, *, lecture_id: str = "", th
         redacted, private = redact_sensitive(message)
         safe_message = clean_text(user_id, redacted, 4000)
         crisis = has_crisis_signal(safe_message)
-        result = {"intent": "chat", "mock": False} if private or crisis else classify(user_id, safe_message)
+        from app.study.v2 import goal_flow
+        pending_goal = goal_flow.pending(user_id) if (not private and not crisis) else None
+        if pending_goal is not None:
+            result = {"intent": "goal", "goal": pending_goal["title"], "mock": False}
+        else:
+            result = {"intent": "chat", "mock": False} if private or crisis else classify(user_id, safe_message)
         intent = result["intent"]
         # The plan owner currently labels upstream study fixtures as simulated.
         state["mock"] = result.get("mock", False) or intent == "plan"
@@ -193,6 +198,31 @@ def _conversation_events(user_id: str, message: str, *, lecture_id: str = "", th
                 yield {"delta": ("（模拟）" if state["mock"] else "") + reply}
                 if data.get("card") is not None:
                     yield {"type": "handoff", "intent": "plan", "data": data}
+            elif intent == "goal":
+                if pending_goal is not None:
+                    next_q, outline = goal_flow.advance(user_id, safe_message)
+                    if outline is not None:
+                        yield {"delta": f"好，我按「{pending_goal['title']}」排好学习大纲了，可以直接改或确认。"}
+                        yield {"type": "handoff", "intent": "goal", "data": {"outline": outline}}
+                    elif next_q is not None:
+                        yield {"delta": next_q["question"]}
+                        yield {"type": "handoff", "intent": "goal", "data": next_q}
+                else:
+                    from app.study.plan import goal as goal_mod
+                    goal_type = result.get("goal_type", "skill")
+                    goal_name = (result.get("goal") or safe_message).strip()[:20]
+                    try:
+                        current = goal_mod.current(user_id)
+                        needs_setup = bool(current.get("needs_setup", True))
+                        existing_title = current.get("title") or ""
+                    except Exception:
+                        needs_setup, existing_title = True, ""
+                    if needs_setup:
+                        first = goal_flow.start(user_id, goal_type, goal_name)
+                        yield {"delta": first["question"]}
+                        yield {"type": "handoff", "intent": "goal", "data": first}
+                    else:
+                        yield {"delta": f"你现在学的是「{existing_title}」，要改成「{goal_name}」吗？"}
             else:
                 yield from _qa_events(user_id, safe_message, state["lecture_id"], state)
 
