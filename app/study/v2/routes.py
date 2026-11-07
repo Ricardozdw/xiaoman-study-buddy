@@ -1,4 +1,4 @@
-"""V2 状态与学习大纲接口；开关由聚合路由在启动时控制。"""
+"""V2 学习流程接口；开关由聚合路由在启动时控制。"""
 from datetime import date
 from typing import Literal
 
@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import assessment, service
+from . import assessment, completion, service
 from .outline import Unit
 
 router = APIRouter()
@@ -79,3 +79,24 @@ def assessment_start(user_id: str = Depends(require_user)):
 def assessment_submit(assessment_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
     report, mock = assessment.submit(user_id, assessment_id, body.answers)
     return pack(report, mock=mock)
+
+
+class CompletionConfirmBody(BaseModel):
+    reason: Literal["suggested", "user_said"]
+
+
+@router.get("/api/v2/completion")
+def completion_status(user_id: str = Depends(require_user)):
+    data = completion.status(user_id)
+    return pack(data, mock=bool(data["card"] and data["card"]["label"]))
+
+
+@router.post("/api/v2/completion/confirm")
+def completion_confirm(body: CompletionConfirmBody, user_id: str = Depends(require_user)):
+    card = completion.confirm(user_id, body.reason)
+    return pack(card, mock=bool(card["label"]))
+
+
+@router.post("/api/v2/completion/undo")
+def completion_undo(user_id: str = Depends(require_user)):
+    return pack(completion.undo(user_id), mock=False)
