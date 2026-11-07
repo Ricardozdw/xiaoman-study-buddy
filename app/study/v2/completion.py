@@ -75,7 +75,7 @@ def _card(session, outline):
     reports = list(session.scalars(select(Assessment).where(
         Assessment.user_id == user_id, Assessment.outline_id == outline.id,
         Assessment.created_at >= started_at, Assessment.status == "submitted",
-        Assessment.score.is_not(None),
+        Assessment.score.is_not(None), Assessment.stage_no > 0,  # 每日考试不算阶段成绩
     ).order_by(Assessment.submitted_at, Assessment.id)))
     mock = mock or any(mapping(report.report_json).get("mock") for report in reports)
     card = {

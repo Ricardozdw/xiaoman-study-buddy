@@ -292,6 +292,15 @@ def _advance_progress(session, user_id: str, row: PlanTask, status: str) -> None
         _remember_progress(goal, first - 1)
 
 
+def _exam_question_ids(session, user_id: str) -> set[str]:
+    """V2.1：考试 / 阶段测验的题不算「练一练」，免得一场考试顺带勾掉练习。"""
+    from app.study.v2 import enabled
+    if not enabled():
+        return set()
+    from app.study.v2.exam import exam_question_ids
+    return exam_question_ids(session, user_id)
+
+
 def _auto_complete(session, user_id: str, plan: PlanDay) -> list[str]:
     """做了就自动勾上（PRD F5，产品规则 5：做了就算完成，对错不影响）。
 
@@ -314,6 +323,7 @@ def _auto_complete(session, user_id: str, plan: PlanDay) -> list[str]:
     attempts = session.execute(
         select(Attempt.question_id, Attempt.created_at).where(Attempt.user_id == user_id)
     ).all()
+    exam_ids = _exam_question_ids(session, user_id)
     finished: list[str] = []
     for task in todo:
         ref = _loads(task.ref_json, {})
@@ -329,7 +339,8 @@ def _auto_complete(session, user_id: str, plan: PlanDay) -> list[str]:
         elif task.kind == "practice":
             lecture_id = ref.get("lecture_id")
             total = sum(1 for lid in questions.values() if lid == lecture_id)
-            answered = {qid for qid, at in attempts if questions.get(qid) == lecture_id and (at or "") >= since}
+            answered = {qid for qid, at in attempts
+                        if questions.get(qid) == lecture_id and (at or "") >= since and qid not in exam_ids}
             need = min(scheduler.PRACTICE_COUNT.get(plan.intensity, 5), total)
             done = total > 0 and len(answered) >= need
         elif task.kind == "repair" and source == "mistakes":

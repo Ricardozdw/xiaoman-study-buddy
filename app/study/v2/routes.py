@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import assessment, completion, lecture, service
+from . import assessment, completion, exam, lecture, service
 from .outline import Unit
 
 router = APIRouter()
@@ -101,6 +101,18 @@ def assessment_start(user_id: str = Depends(require_user)):
 @router.post("/api/v2/assessment/{assessment_id}/submit")
 def assessment_submit(assessment_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
     report, mock = assessment.submit(user_id, assessment_id, body.answers)
+    return pack(report, mock=mock)
+
+
+@router.post("/api/v2/exam/start")
+def exam_start(user_id: str = Depends(require_user)):
+    data = exam.start(user_id)
+    return pack(data, mock=bool(data.get("mock")))
+
+
+@router.post("/api/v2/exam/{exam_id}/submit")
+def exam_submit(exam_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
+    report, mock = exam.submit(user_id, exam_id, body.answers)
     return pack(report, mock=mock)
 
 
