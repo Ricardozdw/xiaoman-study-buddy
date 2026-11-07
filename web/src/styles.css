@@ -449,3 +449,10 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .v2-celebrate-avatar { flex: none; display: inline-block; animation: v2-hop 900ms ease-out 2; }
 @keyframes v2-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px) rotate(-4deg); } 70% { transform: translateY(0) rotate(3deg); } }
 @media (prefers-reduced-motion: reduce) { .v2-celebrate-avatar { animation: none; } }
+
+/* V2.2 错题本 */
+.v2-mistake-group h4 { margin: 14px 0 6px; }
+.v2-mistake { border-top: 1px solid var(--xm-line); padding: 10px 0; overflow-wrap: anywhere; }
+.v2-mistake p { margin: 4px 0; }
+.v2-mistake-stem { font-weight: 500; }
+.v2-redo { margin-top: 8px; display: grid; gap: 8px; }

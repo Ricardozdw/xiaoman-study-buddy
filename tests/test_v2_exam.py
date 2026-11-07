@@ -16,8 +16,9 @@ def api(monkeypatch):
     monkeypatch.setenv("XIAOMAN_V2", "1")
     from app.study.v2.routes import router as v2_router
     from app.study.plan.routes import router as plan_router
+    from app.study.practice.routes import router as practice_router
     app = FastAPI()
-    for router in (v2_router, plan_router):
+    for router in (v2_router, plan_router, practice_router):
         app.include_router(router)
     with RawTestClient(app) as client:
         yield client
@@ -171,3 +172,24 @@ def test_today_summary_counts_and_keeps_total_days(api, owner):
     again = get(api, owner, "/api/v2/today/summary")
     assert again["total_days"] == 2 and again["all_done"] is False  # 断了不清零
     assert [item["no"] for item in again["lectures"]] == [3]
+
+
+def test_mistake_book_groups_and_drops_after_correct_redo(api, owner, auth):
+    accept(api, owner)
+    exam = post(api, owner, f"{BASE}/start")
+    post(api, owner, f"{BASE}/{exam['id']}/submit", {"answers": {q["id"]: "A" for q in exam["questions"]}})
+    data = get(api, owner, "/api/v2/mistakes")
+    assert data["count"] == len(exam["questions"])
+    group = data["groups"][0]
+    assert group["lecture_no"] == 1 and group["title"]
+    item = group["items"][0]
+    assert item["your_answer"] == "A" and item["your_answer_text"] and item["answer_text"]
+    assert get(api, ("x",) + (auth("exam-other-" + uuid4().hex),), "/api/v2/mistakes")["count"] == 0  # 别人看不到
+
+    quiz = post(api, owner, "/api/quizzes", {"mode": "review", "question_ids": [item["question_id"]], "count": 1})
+    question = quiz["questions"][0]
+    result = post(api, owner, "/api/attempts", {"quiz_id": quiz["quiz_id"], "question_id": question["id"], "answer": "B"})
+    assert result["correct"] is True
+    after = get(api, owner, "/api/v2/mistakes")
+    assert after["count"] == data["count"] - 1
+    assert item["question_id"] not in {i["question_id"] for g in after["groups"] for i in g["items"]}

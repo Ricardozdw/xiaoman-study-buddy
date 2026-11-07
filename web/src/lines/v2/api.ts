@@ -101,6 +101,32 @@ export async function submitExam(id: string, answers: Record<string, string>): P
   return { ok: true, report: result.data };
 }
 
+export type MistakeItem = { question_id: string; stem: string; analysis: string; your_answer: string; your_answer_text: string; answer: string; answer_text: string };
+export type MistakeBook = { count: number; groups: { lecture_no: number; title: string; items: MistakeItem[] }[]; mock: boolean };
+type RedoQuiz = { quiz_id: string; questions: QuizQuestion[]; label?: string };
+type RedoResult = { correct: boolean; analysis: string; answer: string };
+
+/** V2.2 错题本：练习线的错题，按讲分组。 */
+export async function getMistakes(): Promise<MistakeBook | null> {
+  const result = await request<MistakeBook>("/api/v2/mistakes");
+  if (!result.ok || !Array.isArray(result.data.groups)) return null;
+  return result.data;
+}
+
+/** 再做一次：练习线复习模式，会换个问法出这一题。 */
+export async function redoMistake(questionId: string): Promise<{ ok: true; quiz: RedoQuiz } | Fail> {
+  const result = await request<RedoQuiz>("/api/quizzes", { method: "POST", body: JSON.stringify({ mode: "review", question_ids: [questionId], count: 1 }) });
+  if (!result.ok) return result;
+  if (!result.data.questions?.length) return { ok: false, message: "这道题暂时没法再出，请稍后再试。" };
+  return { ok: true, quiz: result.data };
+}
+
+export async function answerRedo(quizId: string, questionId: string, answer: string): Promise<{ ok: true; result: RedoResult } | Fail> {
+  const result = await request<RedoResult>("/api/attempts", { method: "POST", body: JSON.stringify({ quiz_id: quizId, question_id: questionId, answer }) });
+  if (!result.ok) return result;
+  return { ok: true, result: result.data };
+}
+
 export type TodaySummary = { all_done: boolean; lines: string[]; total_days: number; week_days: number };
 
 /** V2.2 当日总结；读不到返回 null。 */

@@ -15,9 +15,10 @@ import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Referen
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
-import { advanceProgress, getCurrentOutline, getStatus, type OutlineView } from "../lines/v2/api";
+import { advanceProgress, getCurrentOutline, getMistakes, getStatus, type OutlineView } from "../lines/v2/api";
 import { ExamCard } from "../lines/v2/ExamCard";
 import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
+import { MistakeBookCard } from "../lines/v2/MistakeBookCard";
 import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
 import { OutlineRail } from "../lines/v2/OutlineRail";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
@@ -96,6 +97,9 @@ export function Shell() {
   const [activeExam, setActiveExam] = useState(false);
   const [extraLecture, setExtraLecture] = useState<number | null>(null);
   const [reviewLecture, setReviewLecture] = useState<number | null>(null);
+  const [mistakeCount, setMistakeCount] = useState<number | null>(null);
+  const [showMistakes, setShowMistakes] = useState(false);
+  const [mistakeTick, setMistakeTick] = useState(0);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -160,6 +164,14 @@ export function Shell() {
     void getStatus().then((enabled) => { if (!cancelled) setV2Enabled(enabled); });
     return () => { cancelled = true; };
   }, [qa.sessionReady]);
+
+  // V2.2 错题本数字：做完题、考完试、再做一次后刷新。
+  useEffect(() => {
+    if (v2Enabled !== true || plan.needs_setup === true) { setMistakeCount(null); return; }
+    let cancelled = false;
+    void getMistakes().then((book) => { if (!cancelled) setMistakeCount(book ? book.count : null); });
+    return () => { cancelled = true; };
+  }, [v2Enabled, plan.needs_setup, plan.date, plan.tasks.filter((task) => task.status === "done").length, mistakeTick, qa.messages.length]);
 
   // 块4：确认后的大纲留在左栏。
   useEffect(() => {
@@ -364,6 +376,14 @@ export function Shell() {
             })}
           </ol>
           )}
+          {outline && !goalDone && mistakeCount !== null && (
+            <div className="rail-section">
+              <Button className="list-row" onClick={() => { setShowMistakes(true); setRail(false); }}>
+                <span className="grow">错题本</span>
+                <span className="aux">{mistakeCount ? `${mistakeCount} 题没做对` : "暂无"}</span>
+              </Button>
+            </div>
+          )}
           {outline && !goalDone && <OutlineRail outline={outline} currentNo={currentUnitNo(plan.tasks)} onReview={(no) => { setReviewLecture(no); setRail(false); }} />}
           <section className="rail-section">
             <h2>我的资料</h2>
@@ -454,7 +474,8 @@ export function Shell() {
               </Card>
             )}
             {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
-            {activeExam && <ExamCard onDone={() => { setActiveExam(false); void refreshStudy(); }} />}
+            {showMistakes && <MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} />}
+            {activeExam && <ExamCard onDone={() => { setActiveExam(false); setMistakeTick((n) => n + 1); void refreshStudy(); }} />}
             {v2Enabled && outline && !goalDone && allDoneToday && !activeLecture && !activeExam && extraLecture === null && (
               <DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} />
             )}
