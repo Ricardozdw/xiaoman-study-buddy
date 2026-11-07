@@ -100,7 +100,9 @@ def test_draft_patch_accept_and_undo(api, owner):
     assert today["mock"] is False and today["data"]["needs_setup"] is False
     assert today["data"]["tasks"][0]["title"].startswith("学第 1 讲")
     assert len(today["data"]["tasks"]) <= 3
-    lectures = api.get("/api/qa/lectures",headers=headers).json()["data"]["items"]
+    lecture_data = api.get("/api/qa/lectures", headers=headers).json()["data"]
+    assert lecture_data["current_lecture_id"] == "lec-1"
+    lectures = lecture_data["items"]
     assert {item["id"] for item in lectures} == {f'lec-{i}' for i in range(1,len(edited)+1)}
     assert all(item["title"] == service.FILENAME for item in lectures)
     with SessionLocal() as session:

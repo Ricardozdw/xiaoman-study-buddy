@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -93,6 +94,8 @@ def _clean_seed(session, user_id):
 
 def _write_materials(session, user_id, row, goal_id, units):
     prefix = f"v2-outline-{row.id}"
+    # 问答按文件创建时间选择初始讲次，首讲应是这批文件中最新的。
+    created_at = datetime.now(timezone.utc)
     session.add(Course(id=prefix, user_id=user_id, goal_id=goal_id, title=row.title, sort_order=1))
     for unit in units:
         number = unit["no"]
@@ -100,7 +103,9 @@ def _write_materials(session, user_id, row, goal_id, units):
         session.add(Chapter(id=f"{prefix}-chapter-{number}", user_id=user_id, course_id=prefix,
                             title=unit["title"], sort_order=number, lecture_id=lecture_id))
         session.add(StudyFile(id=file_id, user_id=user_id, filename=FILENAME,
-                              storage_path=f"v2-outline://{row.id}/{number}", parse_status="ready", lecture_id=lecture_id))
+                              storage_path=f"v2-outline://{row.id}/{number}", parse_status="ready",
+                              lecture_id=lecture_id,
+                              created_at=(created_at - timedelta(seconds=number - 1)).isoformat()))
         session.add(MaterialPage(id=f"{prefix}-page-{number}", user_id=user_id, lecture_id=lecture_id,
                                  file_id=file_id, page_no=1, text=unit["title"] + "\n" + "\n".join(unit["points"])))
 
