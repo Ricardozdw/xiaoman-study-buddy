@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import service
+from . import assessment, service
 from .outline import Unit
 
 router = APIRouter()
@@ -58,3 +58,24 @@ def accept_outline(outline_id: str, user_id: str = Depends(require_user)):
 @router.post("/api/v2/outline/{outline_id}/undo")
 def undo_outline(outline_id: str, user_id: str = Depends(require_user)):
     return pack(service.undo(user_id, outline_id), mock=False)
+
+
+class AssessmentSubmitBody(BaseModel):
+    answers: dict[str, Literal["A", "B", "C", "D"]] = Field(max_length=10)
+
+
+@router.get("/api/v2/assessment/due")
+def assessment_due(user_id: str = Depends(require_user)):
+    return pack(assessment.due(user_id), mock=False)
+
+
+@router.post("/api/v2/assessment/start")
+def assessment_start(user_id: str = Depends(require_user)):
+    data = assessment.start(user_id)
+    return pack(data, mock=data["mock"])
+
+
+@router.post("/api/v2/assessment/{assessment_id}/submit")
+def assessment_submit(assessment_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
+    report, mock = assessment.submit(user_id, assessment_id, body.answers)
+    return pack(report, mock=mock)
