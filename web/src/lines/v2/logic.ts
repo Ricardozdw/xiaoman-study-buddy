@@ -2,13 +2,17 @@
 
 export type GoalType = "exam" | "course" | "skill";
 export type MaterialsChoice = "now" | "later" | "none";
-export type GoalStep = "goal" | "deadline" | "minutes" | "materials" | "progress" | "confirm";
+export type GoalStep = "goal" | "goalName" | "deadline" | "minutes" | "materials" | "progress" | "confirm";
+
+export const V2_OPENING = "我是小满。先说说你想学成什么样，我帮你拆成每天的小任务。";
 
 export type GoalState = {
   step: GoalStep;
   goalChosen: boolean;
   goalType?: GoalType;
   title?: string;
+  /** 点了快捷回复、还没填具体名称时，跳过就用这句当目标名。 */
+  quickTitle?: string;
   deadlineChosen: boolean;
   /** 用户选了具体日期或快捷换算后的日期。不急、跳过都不放这里。 */
   deadline?: string;
@@ -60,7 +64,13 @@ const GOAL_OPTIONS: { label: string; goalType: GoalType; title: string }[] = [
   { label: "掌握一项技能", goalType: "skill", title: "掌握一项技能" },
 ];
 
-export const QUESTIONS: Record<Exclude<GoalStep, "confirm">, { text: string; quick: string[] }> = {
+export function goalNamePrompt(goalType: GoalType | undefined): string {
+  if (goalType === "exam") return "是哪个证书？";
+  if (goalType === "skill") return "是哪项技能？";
+  return "是哪门课或哪本书？";
+}
+
+export const QUESTIONS: Record<Exclude<GoalStep, "confirm" | "goalName">, { text: string; quick: string[] }> = {
   goal: { text: "想学成什么样？", quick: GOAL_OPTIONS.map((item) => item.label) },
   deadline: { text: "什么时候想完成？", quick: ["一个月内", "三个月内", "不急"] },
   minutes: { text: "每天大概有多少时间？", quick: ["15 分钟", "30 分钟", "50 分钟"] },
@@ -104,6 +114,8 @@ export function stepProgress(state: GoalState): { current: number; total: number
   const steps: GoalStep[] = ["goal", "deadline", "minutes", "materials"];
   if (asksProgress(state)) steps.push("progress");
   if (state.step === "confirm") return { current: steps.length, total: steps.length };
+  // 追问具体名称仍算第 1 题，不另加一题。
+  if (state.step === "goalName") return { current: 1, total: steps.length };
   return { current: steps.indexOf(state.step) + 1, total: steps.length };
 }
 
@@ -142,6 +154,7 @@ function go(state: GoalState, step: GoalStep): GoalState {
 export function applyAnswer(state: GoalState, input: AnswerInput, today: string): { state: GoalState; error?: string; notice?: string } {
   if (state.step === "confirm") return fail(state, "已经到确认了。");
   if (state.step === "goal") return applyGoal(state, input);
+  if (state.step === "goalName") return applyGoalName(state, input);
   if (state.step === "deadline") return applyDeadline(state, input, today);
   if (state.step === "minutes") return applyMinutes(state, input);
   if (state.step === "materials") return applyMaterials(state, input);
@@ -149,13 +162,28 @@ export function applyAnswer(state: GoalState, input: AnswerInput, today: string)
 }
 
 function applyGoal(state: GoalState, input: AnswerInput): { state: GoalState; error?: string } {
-  if (input.type === "skip") return { state: go({ ...state, goalChosen: false, goalType: undefined, title: undefined }, "deadline") };
-  const text = input.type === "quick" ? input.label : input.type === "text" ? input.text.trim() : "";
+  if (input.type === "skip") return { state: go({ ...state, goalChosen: false, goalType: undefined, title: undefined, quickTitle: undefined }, "deadline") };
+  if (input.type === "quick") {
+    const option = GOAL_OPTIONS.find((item) => item.label === input.label);
+    if (!option) return fail(state, "可以点上面一个，或自己说一个目标。");
+    return { state: go({ ...state, goalChosen: false, goalType: option.goalType, title: undefined, quickTitle: option.title }, "goalName") };
+  }
+  const text = input.type === "text" ? input.text.trim() : "";
   if (!text) return fail(state, "可以说一个目标，或先跳过。");
   if (text.length > 200) return fail(state, "目标名称太长了，请控制在 200 字以内。");
   const parsed = goalFromText(text);
   if (!parsed) return fail(state, "我还分不清是考证、课程还是技能。可以点上面一个，或先跳过。");
-  return { state: go({ ...state, goalChosen: true, goalType: parsed.goalType, title: parsed.title }, "deadline") };
+  return { state: go({ ...state, goalChosen: true, goalType: parsed.goalType, title: parsed.title, quickTitle: undefined }, "deadline") };
+}
+
+function applyGoalName(state: GoalState, input: AnswerInput): { state: GoalState; error?: string } {
+  const fallback = state.quickTitle;
+  if (!state.goalType || !fallback) return fail(state, "先选一个目标类型。");
+  if (input.type === "skip") return { state: go({ ...state, goalChosen: true, title: fallback, quickTitle: undefined }, "deadline") };
+  const text = input.type === "text" ? input.text.trim() : "";
+  if (!text) return fail(state, "可以说具体名称，或先跳过。");
+  if (text.length > 200) return fail(state, "目标名称太长了，请控制在 200 字以内。");
+  return { state: go({ ...state, goalChosen: true, title: text, quickTitle: undefined }, "deadline") };
 }
 
 function applyDeadline(state: GoalState, input: AnswerInput, today: string): { state: GoalState; error?: string } {

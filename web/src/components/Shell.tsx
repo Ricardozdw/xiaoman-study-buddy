@@ -16,8 +16,11 @@ import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
 import { getStatus } from "../lines/v2/api";
+import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
+import { subscribeGoalDone } from "../lines/v2/done";
 import { AcceptedOutlineBar, GoalFlowV2 } from "../lines/v2/GoalFlowV2";
 import { OUTLINE_BADGE, answerUsesOutlineSource } from "../lines/v2/source";
+import { V2Cards } from "../lines/v2/V2Cards";
 import { Badge, Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
@@ -83,6 +86,8 @@ export function Shell() {
   const [compact, setCompact] = useState(false);
   // 只读一次。404 或连不上时 getStatus 为 false，对话仍走计划线原来的定目标。
   const [v2Enabled, setV2Enabled] = useState<boolean | null>(null);
+  const [goalDone, setGoalDone] = useState(false);
+  const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
 
   const companionRef = useRef<HTMLDivElement>(null);
@@ -145,6 +150,17 @@ export function Shell() {
     void getStatus().then((enabled) => { if (!cancelled) setV2Enabled(enabled); });
     return () => { cancelled = true; };
   }, [qa.sessionReady]);
+
+  useEffect(() => {
+    if (v2Enabled !== true) {
+      setGoalDone(false);
+      return;
+    }
+    return subscribeGoalDone((done) => {
+      setGoalDone(done);
+      if (!done) setNextGoalHint(false);
+    });
+  }, [v2Enabled]);
 
   useEffect(() => {
     setPageText("");
@@ -252,7 +268,7 @@ export function Shell() {
           <div className="rail-title">
             <h2>今天三件</h2>
             <span className="count">
-              {needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
+              {goalDone ? "已完成" : needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
             </span>
           </div>
           <div className="seg" role="group" aria-label="今天的强度">
@@ -265,7 +281,13 @@ export function Shell() {
           <p className="rail-caption">
             约 {plan.minutes} 分钟{plan.label ? ` · ${plan.label}` : ""}
           </p>
-          {needsGoal ? (
+          {goalDone ? (
+            <div className="rail-empty">
+              <p>{GOAL_DONE_RAIL}</p>
+              <Button variant="primary" onClick={() => setNextGoalHint(true)}>定下一个目标</Button>
+              {nextGoalHint && <p>{NEXT_GOAL_HINT}</p>}
+            </div>
+          ) : needsGoal ? (
             <div className="rail-empty">
               <p>先定个学习目标，我帮你拆成每天三件。</p>
               <Button variant="primary" onClick={() => { setRail(false); document.querySelector('[aria-label="计划线"]')?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
@@ -379,6 +401,7 @@ export function Shell() {
             {showV2Goal && <GoalFlowV2 today={plan.date} />}
             {source === "api" && !waitForV2 && !showV2Goal && <PlanLine inChat showDemo={DEV} />}
             {source === "api" && v2Enabled === true && !showV2Goal && <AcceptedOutlineBar today={plan.date} />}
+            {v2Enabled && <V2Cards doneCount={doneCount} />}
             {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}

@@ -409,3 +409,11 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   padding: 8px 12px;
 }
 .v2-field textarea { min-height: 72px; resize: vertical; }
+.v2-cards { display: grid; gap: 10px; min-width: 0; }
+.v2-cards .card { max-width: 100%; }
+.v2-options { display: grid; gap: 8px; min-width: 0; }
+.v2-options .btn { max-width: 100%; }
+.v2-score { margin: 4px 0; font-size: 32px; line-height: 1.2; font-weight: 600; color: var(--xm-ink); }
+.v2-lines { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.v2-lines li { display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.v2-options .btn[aria-pressed="true"] { background: linear-gradient(180deg, var(--xm-selected-start), var(--xm-selected-end)); border-color: var(--xm-focus); }
