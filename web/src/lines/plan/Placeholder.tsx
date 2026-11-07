@@ -91,7 +91,7 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
     <section aria-label="计划线">
       {opening && (inChat ? (
         <Bubble role="xiaoman">
-          {opening.label && <><Badge sim={opening.label === "模拟"}>{opening.label}</Badge><br /></>}
+          {opening.label === "模拟" ? <><Badge sim>模拟</Badge><br /></> : opening.label ? <span className="ai-tag">AI 整理</span> : null}
           {opening.greeting}
         </Bubble>
       ) : (
@@ -148,13 +148,13 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
       {reply && <p className="aux">{reply}</p>}
 
       {!card && !asking && plan.quick_replies.length > 0 && (
-        <div className="btns" aria-label="快捷回复">
-          {plan.quick_replies.map((item) => (
+        <div className="quick-replies" aria-label="快捷回复">
+          {plan.quick_replies.filter((item) => item.action === "goal_setup" || item.action === "adjust").map((item) => (
             <button
               key={item.text}
               type="button"
               className="btn"
-              disabled={busy || item.action === "start_task" || item.action === "tomorrow" || item.action === "dashboard"}
+              disabled={busy}
               onClick={() => {
                 if (item.action === "goal_setup") void startSetup();
                 if (item.action === "adjust") void run("adjust", "/api/plan/adjust", { text: item.text });

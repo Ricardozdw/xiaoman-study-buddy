@@ -24,7 +24,7 @@ import { OutlineRail } from "../lines/v2/OutlineRail";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
 import { subscribeGoalDone } from "../lines/v2/done";
 import { AcceptedOutlineBar } from "../lines/v2/GoalFlowV2";
-import { OUTLINE_BADGE, answerUsesOutlineSource } from "../lines/v2/source";
+import { OUTLINE_BADGE, answerUsesOutlineSource, isOutlineFilename } from "../lines/v2/source";
 import { V2Cards } from "../lines/v2/V2Cards";
 import { LectureCard } from "../lines/v2/LectureCard";
 import { Badge, Bubble, Button, Card, Icon, IconButton, TaskArt } from "./ui";
@@ -53,7 +53,7 @@ export function Shell() {
   // 七种卡片的样子仍可用 cards/logic.ts 的 previewCards() 查看。
   const [cards, setCards] = useState<StudyCard[]>([]);
   const [bubbles] = useState<Notice[]>([
-    { id: "hi", role: "xiaoman", text: "我是小满。今天的三件在左边，想从哪件开始都行；有不懂的，直接问我。" },
+    { id: "hi", role: "xiaoman", text: "我是小满。今天有三件小事，想从哪件开始都行；有不懂的，直接问我。" },
   ]);
   const [draft, setDraft] = useState("");
   const qa = useQaConversation();
@@ -102,6 +102,17 @@ export function Shell() {
   const [mistakeTick, setMistakeTick] = useState(0);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
+  const [doneNote, setDoneNote] = useState("");
+  // 在对话里刚确认大纲：今天的安排接在对话后面，不插到最上面。
+  const [justAccepted, setJustAccepted] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const activityRef = useRef<HTMLDivElement>(null);
+  // 开始一件新的事（讲解 / 考试 / 错题本）时，把它滚到眼前。
+  useEffect(() => {
+    if (activeLecture || activeExam || showMistakes || reviewLecture !== null || extraLecture !== null) {
+      activityRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [activeLecture, activeExam, showMistakes, reviewLecture, extraLecture]);
   const streamRef = useRef<HTMLDivElement>(null);
 
   const companionRef = useRef<HTMLDivElement>(null);
@@ -282,6 +293,38 @@ export function Shell() {
     if (boardRes.source === "api") setBoard(boardRes.envelope.data);
   }
 
+  // 每一件只有一个入口：点任务卡就开始；做完一件，自动接下一件。
+  function canStart(task: PlanToday["tasks"][number]) {
+    if (task.kind === "learn") return task.ref?.source === "lecture" || (task.ref?.source === "upload" && Boolean(task.ref.lecture_id));
+    if (task.kind === "practice") return Boolean(v2Enabled && task.ref?.lecture_no);
+    return task.kind === "exam";
+  }
+
+  function startTask(task: PlanToday["tasks"][number]) {
+    setRail(false);
+    setDoneNote("");
+    if (task.kind === "learn" && task.ref?.source === "lecture") setActiveLecture({ unitNo: task.ref.lecture_no!, taskId: task.id });
+    else if (task.kind === "learn" && task.ref?.lecture_id) { setPinnedUpload(task.ref.lecture_id); materials.current?.chooseFile(); }
+    else if (task.kind === "practice" && task.ref?.lecture_no) void qa.send(`出几道第 ${task.ref.lecture_no} 讲的练习题`);
+    else if (task.kind === "exam") setActiveExam(true);
+  }
+
+  async function startNext(skipId?: string) {
+    const fresh = await api<PlanToday>("/api/plan/today");
+    const tasks = fresh.source === "api" ? fresh.envelope.data.tasks : plan.tasks;
+    if (fresh.source === "api") setPlan(fresh.envelope.data);
+    const next = tasks.find((task) => task.status !== "done" && task.id !== skipId && canStart(task));
+    if (next) startTask(next);
+  }
+
+  async function finishLecture(taskId: string, unitNo: number) {
+    await api(`/api/tasks/${taskId}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) });
+    setActiveLecture(null);
+    // 小步庆祝：放进对话流里（不是模型说的，不标 AI），紧接着出练习。
+    qa.addNote(`✓ 第 ${unitNo} 讲学完了，接着练几道题巩固一下。`);
+    await startNext(taskId);
+  }
+
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
   const waitForV2 = source === "api" && v2Enabled === null && plan.needs_setup === true;
   const firstStep = goalDone ? null : firstLectureStep(outline, plan.tasks);
@@ -292,8 +335,14 @@ export function Shell() {
   const nextUnit = outline && !goalDone && allDoneToday && !allLearned ? outline.units[learnedUpTo] : undefined; // 当日总结卡里的「学下一讲」
   const nextExtra = nextUnit ? { no: nextUnit.no ?? learnedUpTo + 1, title: nextUnit.title } : null;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
-  const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
-  const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
+  const nextTask = plan.tasks.find((task) => task.status !== "done");
+  // 只有自己交过两份以上课件时，@ 选讲次才有意义；AI 大纲各讲同名，不放进来。
+  const realLectures = availableLectures.filter((item) => !item.mock && !isOutlineFilename(item.title));
+  const planOpening = <>
+    {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} />}
+    {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
+  </>;
+  const EXAMPLES = ["两周后考 PMP，每天半小时", "三个月学会 Python 入门", "零基础学吉他，每天 20 分钟"];
 
   return (
     <div className="app">
@@ -305,7 +354,7 @@ export function Shell() {
             <IconButton className="rail-close" icon="close" label="收起今天三件" onClick={() => setRail(false)} />
           </div>
           <div className="rail-title">
-            <h2>今天三件</h2>
+            <h2>今天</h2>
             <span className="count">
               {goalDone ? "已完成" : needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
             </span>
@@ -318,7 +367,7 @@ export function Shell() {
             ))}
           </div>
           <p className="rail-caption">
-            约 {plan.minutes} 分钟{plan.label ? ` · ${plan.label}` : ""}
+            约 {plan.minutes} 分钟
           </p>
           {goalDone ? (
             <div className="rail-empty">
@@ -329,7 +378,7 @@ export function Shell() {
           ) : needsGoal ? (
             <div className="rail-empty">
               <p>先定个学习目标，我帮你拆成每天三件。</p>
-              <Button variant="primary" onClick={() => { setRail(false); document.querySelector('[aria-label="计划线"]')?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
+              <Button variant="primary" onClick={() => { setRail(false); document.querySelector<HTMLInputElement>('input[aria-label="跟小满说一句"]')?.focus(); }}>
                 定目标
               </Button>
             </div>
@@ -338,39 +387,25 @@ export function Shell() {
             {plan.tasks.map((task) => {
               const done = task.status === "done";
               const state = done ? "done" : task.id === currentId ? "current" : "";
+              const startable = !done && canStart(task);
               return (
                 <li key={task.id}>
-                  <button type="button" className={`task-card ${state}`} aria-pressed={done} onClick={() => toggleTask(task.id, task.status)}>
+                  <button type="button" className={`task-card ${state}`} aria-pressed={done}
+                    disabled={startable && !qa.sessionReady}
+                    aria-label={startable ? `开始：${task.title}` : undefined}
+                    onClick={() => (startable ? startTask(task) : void toggleTask(task.id, task.status))}>
                     <TaskArt kind={task.kind} />
                     <span className="task-copy">
                       <span className="kind">{task.kind_label}</span>
                       <strong>{task.title}</strong>
                       <span className="meta">{done ? "已完成" : task.minutes ? `约 ${task.minutes} 分钟` : task.done_when}</span>
                     </span>
-                    <span className="task-mark" aria-hidden="true">
-                      {done && <Icon name="check" />}
-                    </span>
+                    {state === "current" && startable ? <span className="task-go">开始</span> : (
+                      <span className="task-mark" aria-hidden="true">
+                        {done && <Icon name="check" />}
+                      </span>
+                    )}
                   </button>
-                  {!done && task.kind === "learn" && task.ref?.source === "lecture" && (
-                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setActiveLecture({ unitNo: task.ref!.lecture_no!, taskId: task.id }); setRail(false); }}>
-                      学这一讲
-                    </Button>
-                  )}
-                  {!done && v2Enabled && task.kind === "practice" && task.ref?.lecture_no && (
-                    <Button className="task-action" disabled={!qa.sessionReady || qa.busy} onClick={() => { setRail(false); void qa.send(`出几道第 ${task.ref!.lecture_no} 讲的练习题`); }}>
-                      练一练
-                    </Button>
-                  )}
-                  {!done && task.kind === "exam" && (
-                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setActiveExam(true); setRail(false); }}>
-                      开始考试
-                    </Button>
-                  )}
-                  {!done && task.kind === "learn" && task.ref?.source === "upload" && task.ref.lecture_id && (
-                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setPinnedUpload(task.ref!.lecture_id!); materials.current?.chooseFile(); }}>
-                      交资料
-                    </Button>
-                  )}
                 </li>
               );
             })}
@@ -401,29 +436,6 @@ export function Shell() {
               ))}
             </ul>
           </section>
-          {permissions && (
-            <section className="rail-section">
-              <h2>授权</h2>
-              <p className="aux">{permissions.chosen ? "已选过" : permissions.note}</p>
-              <div className="list-group">
-                {permissions.switches.map((item) => (
-                  <label key={item.key} className="list-row">
-                    <input
-                      type="checkbox"
-                      checked={item.value === true}
-                      onChange={() => {
-                        const next = Object.fromEntries(permissions.switches.map((row) => [row.key, row.key === item.key ? row.value !== true : row.value === true]));
-                        void api<Permissions>("/api/me/permissions", { method: "PATCH", body: JSON.stringify({ permissions: next }) }).then((result) => {
-                          setPermissions(result.envelope.data);
-                        });
-                      }}
-                    />
-                    <span className="grow">{item.label}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-          )}
         </aside>
         <main className={compact ? "chat compact" : "chat"}
           onDragOver={event => { if (Array.from(event.dataTransfer.types).includes("Files")) event.preventDefault(); }}
@@ -435,17 +447,42 @@ export function Shell() {
               <strong>小满</strong>
             </div>
             <div className="grow" />
-            <span className="source-label" title={sourceTitle}>
-              {sourceText}
-            </span>
-            <label className="pill-select">
-              字号
-              <select value={font} onChange={(event) => setFont(event.target.value as FontSize)}>
-                <option value="sm">标准</option>
-                <option value="md">大</option>
-                <option value="lg">更大</option>
-              </select>
-            </label>
+            {source === "mock" && <span className="source-label" title="后端没接上，用的是本地假数据">离线演示</span>}
+            <Button className="settings-btn" aria-label="设置" aria-expanded={settings} onClick={() => setSettings((open) => !open)}>Aa</Button>
+            {settings && (
+              <div className="settings-pop" role="dialog" aria-label="设置">
+                <h3>字号</h3>
+                <div className="seg" role="group" aria-label="字号">
+                  {([["sm", "标准"], ["md", "大"], ["lg", "更大"]] as const).map(([id, label]) => (
+                    <button key={id} type="button" aria-pressed={font === id} onClick={() => setFont(id)}>{label}</button>
+                  ))}
+                </div>
+                {permissions && (
+                  <>
+                    <h3>小满可以</h3>
+                    <p className="aux">只影响给你的建议，随时可以改。</p>
+                    <div className="list-group">
+                      {permissions.switches.filter((item) => !item.placeholder).map((item) => (
+                        <label key={item.key} className="list-row">
+                          <input
+                            type="checkbox"
+                            checked={item.value === true}
+                            onChange={() => {
+                              const next = Object.fromEntries(permissions.switches.map((row) => [row.key, row.key === item.key ? row.value !== true : row.value === true]));
+                              void api<Permissions>("/api/me/permissions", { method: "PATCH", body: JSON.stringify({ permissions: next }) }).then((result) => {
+                                setPermissions(result.envelope.data);
+                              });
+                            }}
+                          />
+                          <span className="grow">{item.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <Button onClick={() => setSettings(false)}>好</Button>
+              </div>
+            )}
             {/* 展开时“学习文档”在第二行；往下滑收起后并入顶栏这一行，不挡对话。 */}
             <span className="row-break" aria-hidden="true" />
             <Button className="floating-materials" onClick={() => materials.current?.openNote()} aria-label="打开学习文档">
@@ -459,37 +496,27 @@ export function Shell() {
             <h1>小满</h1>
             <p>在这儿，陪你慢慢学</p>
           </div>
+          {!needsGoal && !goalDone && plan.tasks.length > 0 && (
+            <div className="today-bar" aria-label="今天的进度">
+              <button type="button" className="today-bar-info" onClick={() => setRail(true)}>
+                <span className="today-bar-count">今天 {doneCount}/{plan.tasks.length}</span>
+                <span className="today-bar-meter" aria-hidden="true"><span style={{ width: `${(doneCount / plan.tasks.length) * 100}%` }} /></span>
+                <span className="today-bar-next">{nextTask ? `下一件：${nextTask.title}` : "今天的都做完了"}</span>
+              </button>
+              {nextTask && canStart(nextTask) && <Button variant="primary" disabled={!qa.sessionReady} onClick={() => startTask(nextTask)}>开始</Button>}
+            </div>
+          )}
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
-            {source === "api" && v2Enabled === true && plan.needs_setup === true && <Bubble role="xiaoman">我是小满。说说你想学成什么样，我帮你拆成每天的小任务。</Bubble>}
-            {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} />}
-            {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
-            {v2Enabled && !activeLecture && firstStep && (
-              <Card as="section" aria-label="下一步">
-                <p>{firstStep.text}</p>
-                <div className="btns">
-                  <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setActiveLecture({ unitNo: firstStep.unitNo, taskId: firstStep.taskId })}>学第 1 讲</Button>
-                  <Button onClick={() => setRail(true)}>看大纲</Button>
+            {source === "api" && v2Enabled === true && plan.needs_setup === true && <>
+              <Bubble role="xiaoman">我是小满。说说你想学什么、什么时候学完、每天有多少时间，我帮你拆成每天的小任务。</Bubble>
+              {qa.messages.length === 0 && (
+                <div className="quick-replies examples" role="group" aria-label="可以这样说">
+                  {EXAMPLES.map((text) => <Button key={text} disabled={!qa.sessionReady || busy} onClick={() => void qa.send(text)}>{text}</Button>)}
                 </div>
-              </Card>
-            )}
-            {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
-            {showMistakes && <MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} />}
-            {activeExam && <ExamCard onDone={() => { setActiveExam(false); setMistakeTick((n) => n + 1); void refreshStudy(); }} />}
-            {v2Enabled && outline && !goalDone && allDoneToday && !activeLecture && !activeExam && extraLecture === null && (
-              <DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} />
-            )}
-            {reviewLecture !== null && (
-              <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />
-            )}
-            {extraLecture !== null && (
-              <LectureCard unitNo={extraLecture} onDone={() => {
-                void advanceProgress(extraLecture).then(async () => { setOutline(await getCurrentOutline()); setExtraLecture(null); });
-              }} />
-            )}
-            {activeLecture && (
-              <LectureCard unitNo={activeLecture.unitNo} onDone={() => { void toggleTask(activeLecture.taskId, "todo"); setActiveLecture(null); }} />
-            )}
+              )}
+            </>}
+            {!justAccepted && planOpening}
             {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}
@@ -517,7 +544,7 @@ export function Shell() {
                 {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
                   <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
                 )}
-                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
               </Fragment>
             ) : (
               <Fragment key={entry.turn.id}>
@@ -528,6 +555,35 @@ export function Shell() {
               </Fragment>
             ))}
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
+            {justAccepted && planOpening}
+            <div className="activity" ref={activityRef}>
+            {v2Enabled && !activeLecture && firstStep && (
+              <Card as="section" aria-label="下一步">
+                <p>{firstStep.text}</p>
+                <div className="btns">
+                  <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setActiveLecture({ unitNo: firstStep.unitNo, taskId: firstStep.taskId })}>开始第 1 讲</Button>
+                </div>
+              </Card>
+            )}
+            {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
+            {showMistakes && <MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} />}
+            {activeExam && <ExamCard onDone={() => { setActiveExam(false); setDoneNote(""); setMistakeTick((n) => n + 1); void refreshStudy(); }} />}
+            {v2Enabled && outline && !goalDone && allDoneToday && !activeLecture && !activeExam && extraLecture === null && (
+              <DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} />
+            )}
+            {reviewLecture !== null && (
+              <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />
+            )}
+            {extraLecture !== null && (
+              <LectureCard unitNo={extraLecture} onDone={() => {
+                void advanceProgress(extraLecture).then(async () => { setOutline(await getCurrentOutline()); setExtraLecture(null); });
+              }} />
+            )}
+            {activeLecture && (
+              <LectureCard unitNo={activeLecture.unitNo} onDone={() => void finishLecture(activeLecture.taskId, activeLecture.unitNo)} />
+            )}
+            </div>
+            {doneNote && <p className="done-note" role="status"><Icon name="check" />{doneNote}</p>}
             {cards.map((card) => (
               <StudyCardView
                 key={card.id}
@@ -550,14 +606,14 @@ export function Shell() {
               value={draft}
               maxLength={4000}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="跟小满说，或把课件交给它…"
+              placeholder={needsGoal ? "比如：两周后考 PMP，每天半小时" : "有不懂的，直接问小满"}
               aria-label="跟小满说一句"
             />
-            <LecturePicker value={lectureId} onChange={setLectureId} lectures={availableLectures} currentLectureId={effectiveLectureId} disabled={busy} />
+            {realLectures.length >= 2 && <LecturePicker value={lectureId} onChange={setLectureId} lectures={realLectures} currentLectureId={effectiveLectureId} disabled={busy} />}
             {qa.busy && <Button onClick={qa.stop}>停止</Button>}
             <IconButton type="submit" icon="up" label="发送" variant="primary" disabled={busy || !qa.sessionReady} />
           </form>
-          <p className="disclaimer">AI 整理，可以改 · 重要内容请对照原文</p>
+          <p className="disclaimer">小满整理的内容可能有误，重要内容请对照原文</p>
         </main>
         {tab && (
           <aside className="workbench">
@@ -573,7 +629,17 @@ export function Shell() {
                 : workspace.note?.lecture_id === effectiveLectureId ? <NoteView key={workspace.note.id} note={workspace.note}
                   onSaved={saved => { workspace.showNote(saved); void refreshStudy(); }}
                   onCitation={citation => { setSourceReference(null); setTab("page"); void workspace.openCitation(citation); }} />
-                  : <p>这一讲还没有学习笔记，交一份 PDF 后会自动整理。</p>)}
+                  : outline && learnedUpTo > 0 ? <div className="doc-learned">
+                    <p className="aux">还没交课件，这里先放你学过的讲解，点开可以重看。</p>
+                    <ul className="list-group">
+                      {outline.units.slice(0, learnedUpTo).map((unit, index) => (
+                        <li key={index}><Button className="list-row" onClick={() => { setReviewLecture(unit.no ?? index + 1); setTab(null); }}>
+                          <span className="list-icon"><Icon name="book" /></span><span className="grow">第 {unit.no ?? index + 1} 讲 · {unit.title}</span><Icon name="chevron" />
+                        </Button></li>
+                      ))}
+                    </ul>
+                  </div>
+                  : <p>这里会放你的学习笔记。学完一讲，或交一份 PDF 课件，内容就会出现在这里。</p>)}
             {tab === "page" && (sourceReference ? <QaSourcePanel reference={sourceReference} />
               : workspace.openingOriginal ? <p role="status">正在读取出处……</p>
                 : workspace.originalError ? <p role="alert">{workspace.originalError}</p>

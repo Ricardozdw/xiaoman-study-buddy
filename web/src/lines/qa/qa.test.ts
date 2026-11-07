@@ -81,7 +81,7 @@ describe("QA product contracts", () => {
   it("renders only one practice question for one decision at a time",()=>{
     const answer={...emptyAnswer("a"),status:"done" as const,handoff:{intent:"quiz" as const,data:{label:"模拟",questions:[{id:"q1",kind:"single",stem:"第一题",options:[{id:"A",text:"甲"}]},{id:"q2",kind:"single",stem:"第二题",options:[]}]}}};
     const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
-    expect(html).toContain("第一题"); expect(html).toContain("A 甲"); expect(html).not.toContain("第二题");
+    expect(html).toContain("第一题"); expect(html).toContain('<span class="option-key">A</span>甲'); expect(html).not.toContain("第二题");
   });
 });
 
@@ -166,8 +166,10 @@ it("keeps lake-blue Shell navigation while using QA current lecture selection",a
   const { Shell }=await import('../../components/Shell');
   const html=renderToStaticMarkup(createElement(Shell));
   expect(html).toContain('companion');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
-  expect(html).toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
-  expect(html).toContain('打开学习文档');expect(html).toContain('字号');
+  // 只有一份资料时不放讲次选择；字号和授权收进“设置”；不出现开发用语。
+  expect(html).not.toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
+  expect(html).toContain('打开学习文档');expect(html).toContain('aria-label="设置"');
+  expect(html).not.toContain('已连接');expect(html).not.toContain('占位');expect(html).not.toContain('今天的三件在左边');
 });
 
 it("submits native plan option/date and keeps dismiss and undo on official routes",async()=>{
@@ -209,8 +211,8 @@ it("keeps long quiz choices in the wrapping option variant without changing thei
   const text="学习资料中的一个很长的选项".repeat(30);
   const answer={...emptyAnswer("long-options"),status:"done" as const,handoff:{intent:"quiz" as const,data:{label:"模拟",questions:[{id:"q-long",kind:"single",stem:"长选项",options:[{id:"A",text},{id:"B",text:"短选项"}]}]}}};
   const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
-  expect(html.match(/class="btn option"/g)).toHaveLength(2);
-  expect(html).toContain(text); expect(html).toContain("B 短选项");
+  expect(html.match(/class="btn option ?"/g)).toHaveLength(2);
+  expect(html).toContain(text); expect(html).toContain('<span class="option-key">B</span>短选项');
 });
 
 it("keeps file selection mounted but does not show an idle materials card in a fresh chat",async()=>{
@@ -218,4 +220,18 @@ it("keeps file selection mounted but does not show an idle materials card in a f
   const html=renderToStaticMarkup(createElement(Shell));
   expect(html).toContain('aria-label="选择 PDF 文件"');
   expect(html).not.toContain('aria-label="资料读取"');
+});
+
+it("goal follow-up questions show option chips only while current, without AI tag or feedback buttons",()=>{
+  const answer={...emptyAnswer("g"),text:"每天大概有多少时间？",messageId:"m1",intent:"goal",status:"done" as const,handoff:{intent:"goal" as const,data:{question:"每天大概有多少时间？",options:["15 分钟","30 分钟"]}}};
+  const live=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{},onQuickReply:()=>{}}));
+  expect(live).toContain("30 分钟");expect(live).not.toContain("AI 整理");expect(live).not.toContain("赞同回答");
+  const old=renderToStaticMarkup(createElement(QaAnswer,{answer,active:false,onReference:()=>{},onQuickReply:()=>{}}));
+  expect(old).not.toContain("30 分钟");
+});
+
+it("real answers keep the AI tag and feedback buttons",()=>{
+  const answer={...emptyAnswer("q"),text:"关键路径是最长的那条",messageId:"m2",intent:"qa",status:"done" as const};
+  const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
+  expect(html).toContain("AI 整理");expect(html).toContain("赞同回答");
 });

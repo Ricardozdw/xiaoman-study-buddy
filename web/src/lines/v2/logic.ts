@@ -45,7 +45,7 @@ export type UnitInput = { title: string; points: string[] };
 export const MATERIALS_NOW_NOTICE = "V2 先支持没资料这条路，资料可以之后再交";
 export const CONFIRM_SENTENCE = "这些是先按默认排的";
 export const ACCEPT_STORAGE_KEY = "xiaoman.v2.acceptedOutline";
-export const ACCEPTED_TEXT = "已按这份大纲排好，今天的三件在左边";
+export const ACCEPTED_TEXT = "已按这份大纲排好今天的三件";
 
 export const DEFAULT_TITLE = "把这门课学完";
 export const DEFAULT_MINUTES = 30;

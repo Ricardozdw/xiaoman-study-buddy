@@ -456,3 +456,81 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .v2-mistake p { margin: 4px 0; }
 .v2-mistake-stem { font-weight: 500; }
 .v2-redo { margin-top: 8px; display: grid; gap: 8px; }
+
+/* ===== V2.3 交互优化（P0 + P1） ===== */
+:root { --xm-right: #2f8a5b; --xm-right-bg: #eaf6ef; --xm-wrong: #c0473d; --xm-wrong-bg: #fbecea; }
+
+/* 快捷选项：靠左一排小胶囊，答过就收起 */
+.quick-replies { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+.quick-replies .btn { min-height: 38px; border-radius: 19px; padding: 0 15px; font-size: 14px; }
+.quick-replies.examples { margin-top: 12px; }
+
+/* “AI 整理”只做角标，不再占一行 */
+.ai-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: #e6eef2; color: #5d7480; font-size: 11px; line-height: 18px; vertical-align: 2px; }
+
+/* 👍👎 跟着那条回答，小一点 */
+.feedback-row { display: flex; gap: 4px; margin: 4px 0 0 4px; }
+.feedback-row .btn { min-height: 28px; height: 28px; padding: 0 8px; border-radius: 14px; font-size: 13px; background: transparent; box-shadow: none; border: 1px solid transparent; opacity: .55; }
+.feedback-row .btn:hover { opacity: 1; border-color: #e3e9ee; }
+
+/* 练习：进度条 + 红绿 + 底部反馈条 */
+.quiz-progress { height: 6px; border-radius: 3px; background: #e7edf1; overflow: hidden; margin: 2px 0 10px; }
+.quiz-progress > span { display: block; height: 100%; background: var(--xm-primary); border-radius: 3px; transition: width .3s ease; }
+.options { display: grid; gap: 8px; margin-top: 10px; }
+.btn.option { gap: 10px; }
+.option-key { flex: 0 0 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: #eef2f5; color: #4f626e; font-size: 13px; font-weight: 600; }
+.btn.option.right { background: var(--xm-right-bg); border-color: #b5dec7; color: #1f5f3e; opacity: 1; }
+.btn.option.right .option-key { background: var(--xm-right); color: #fff; }
+.btn.option.wrong { background: var(--xm-wrong-bg); border-color: #efc2bd; color: #8a2f27; opacity: 1; }
+.btn.option.wrong .option-key { background: var(--xm-wrong); color: #fff; }
+.btn.option.dim { opacity: .5; }
+.quiz-feedback { margin-top: 12px; padding: 12px 14px; border-radius: 14px; display: grid; gap: 6px; animation: xm-fade-in .2s ease both; }
+.quiz-feedback.right { background: var(--xm-right-bg); }
+.quiz-feedback.wrong { background: var(--xm-wrong-bg); }
+.quiz-feedback strong { font-size: 16px; }
+.quiz-feedback.right strong { color: var(--xm-right); }
+.quiz-feedback.wrong strong { color: var(--xm-wrong); }
+.quiz-feedback p { margin: 0; line-height: 1.7; }
+.quiz-feedback .btn { justify-self: start; }
+.quiz-done { font-weight: 550; }
+
+/* 做完一件的小提示 */
+.done-note { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--xm-right-bg); color: #285c40; font-size: 14px; }
+.done-note .icon { width: 16px; height: 16px; color: var(--xm-right); }
+
+/* 讲解：一节一节看 */
+.lecture-head { display: grid; gap: 4px; margin-bottom: 6px; }
+.lecture-section { margin-top: 14px; animation: xm-fade-in .25s ease both; }
+.lecture-section h4 { margin: 0 0 6px; font-size: calc(var(--fs) + 1px); }
+.lecture-section > p { margin: 0; line-height: 1.85; }
+.lecture-example { margin-top: 8px !important; padding: 9px 12px; border-radius: 10px; background: #f3f6f8; color: #50616c; font-size: 14px; }
+.lecture-example strong { margin-right: 8px; color: var(--xm-primary); }
+.lecture-card .btns { justify-content: flex-start; margin-top: 16px; }
+
+/* 左栏任务卡：当前这件直接写“开始” */
+.task-go { flex-shrink: 0; padding: 4px 12px; border-radius: 14px; background: var(--xm-primary); color: #fff; font-size: 13px; font-weight: 550; }
+.task-card:disabled { opacity: .7; }
+
+/* 设置（字号 + 授权）收进一个小面板 */
+.settings-btn { min-width: 44px; height: 44px; border-radius: 22px; font-weight: 600; }
+.settings-pop { position: absolute; top: 52px; right: 0; z-index: 8; width: 280px; padding: 16px; display: grid; gap: 10px; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px #2b445020, 0 0 0 1px #e8edf1; }
+.settings-pop h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.settings-pop .aux { margin: -6px 0 0; }
+.settings-pop > .btn { justify-self: end; }
+
+/* 学习文档：学过的讲 */
+.doc-learned { display: grid; gap: 10px; }
+
+/* 手机上：顶部一条“今天 1/3 · 下一件 + 开始”，不用去菜单里找 */
+.today-bar { display: none; }
+@media (max-width: 850px) {
+  .today-bar { align-self: stretch; display: flex; align-items: center; gap: 10px; margin: 0 12px 8px; padding: 8px 8px 8px 14px; border-radius: 16px; background: #fff; box-shadow: 0 3px 14px #2b44500d, 0 0 0 1px #e8edf1; }
+  .today-bar-info { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; row-gap: 3px; border: 0; background: transparent; padding: 0; text-align: left; }
+  .today-bar-count { font-size: 14px; font-weight: 600; color: var(--xm-ink); }
+  .today-bar-meter { height: 6px; border-radius: 3px; background: #e7edf1; overflow: hidden; }
+  .today-bar-meter > span { display: block; height: 100%; background: var(--xm-primary); }
+  .today-bar-next { grid-column: 1 / -1; font-size: 13px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .today-bar .btn { flex-shrink: 0; }
+  .settings-pop { right: -2px; width: min(280px, calc(100vw - 32px)); }
+  .chat.compact .today-bar { margin-top: 0; }
+}

@@ -218,7 +218,7 @@ def _conversation_events(user_id: str, message: str, *, lecture_id: str = "", th
                     except Exception:
                         needs_setup, existing_title = True, ""
                     if needs_setup:
-                        first = goal_flow.start(user_id, goal_type, goal_name)
+                        first = goal_flow.start(user_id, goal_type, goal_name, safe_message)
                         yield {"delta": first["question"]}
                         yield {"type": "handoff", "intent": "goal", "data": first}
                     else:

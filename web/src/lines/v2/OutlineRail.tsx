@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import type { OutlineView } from "./api";
 import { pathNodes } from "./logic";
 
@@ -9,12 +9,18 @@ import { pathNodes } from "./logic";
 export function OutlineRail({ outline, currentNo, onReview }: { outline: OutlineView; currentNo: number | null; onReview?: (unitNo: number) => void }) {
   const nodes = pathNodes(outline, currentNo);
   const learned = outline.learned_up_to ?? 0;
+  // 默认只露出“学过的最后一讲 + 今天 + 后面两讲”，路线太长时不把左栏撑满。
+  const [all, setAll] = useState(false);
+  const todayIndex = Math.max(0, nodes.findIndex((node) => node.state === "today"));
+  const from = Math.max(0, todayIndex - 1);
+  const to = Math.min(nodes.length, todayIndex + 3);
+  const shown = all ? nodes : nodes.slice(from, to);
   return (
     <section className="rail-section" aria-label="学习路径">
       <h2>学习路径</h2>
-      <p className="aux">{outline.title} · 学了 {Math.min(learned, outline.units.length)} / {outline.units.length} 讲 · 通用知识，没有出处</p>
+      <p className="aux">{outline.title} · 学了 {Math.min(learned, outline.units.length)} / {outline.units.length} 讲</p>
       <ol className="v2-path">
-        {nodes.map((node) => (
+        {shown.map((node) => (
           <Fragment key={node.no}>
             <li className={`v2-node ${node.state}`}>
               <span className="v2-dot" aria-hidden="true">{node.state === "done" ? "✓" : node.no}</span>
@@ -41,6 +47,9 @@ export function OutlineRail({ outline, currentNo, onReview }: { outline: Outline
           </Fragment>
         ))}
       </ol>
+      {nodes.length > shown.length || all ? (
+        <button type="button" className="v2-link" onClick={() => setAll((v) => !v)}>{all ? "收起" : `看全部 ${nodes.length} 讲`}</button>
+      ) : null}
     </section>
   );
 }

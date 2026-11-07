@@ -253,7 +253,7 @@ describe("来源标记与当天撤销", () => {
   });
 
   it("撤销提示只在确认当天出现", () => {
-    expect(acceptanceNotice({ id: "abc", day: TODAY }, TODAY)?.text).toBe("已按这份大纲排好，今天的三件在左边");
+    expect(acceptanceNotice({ id: "abc", day: TODAY }, TODAY)?.text).toBe("已按这份大纲排好今天的三件");
     expect(acceptanceNotice({ id: "abc", day: TODAY }, "2026-11-08")).toBeNull();
     expect(acceptanceNotice(null, TODAY)).toBeNull();
   });

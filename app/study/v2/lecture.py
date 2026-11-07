@@ -55,15 +55,26 @@ def _load_outline_and_unit(user_id: str, outline_id: str, unit_no: int):
         return outline, unit
 
 
+PLACEHOLDER = "（讲解暂未生成，可稍后再点本讲）"
+
+
 def _cached(user_id: str, outline_id: str, unit_no: int):
+    """读缓存的讲解。只认真生成过的；以前误存的占位讲解跳过，下次重新生成。"""
     with SessionLocal() as session:
-        row = session.scalar(select(UnitLecture).where(
+        rows = session.scalars(select(UnitLecture).where(
             UnitLecture.user_id == user_id,
             UnitLecture.outline_id == outline_id,
-            UnitLecture.unit_no == unit_no))
-        if row is None:
-            return None
-        return {"title": row.title, "sections": json.loads(row.sections_json), "label": row.label}
+            UnitLecture.unit_no == unit_no)).all()
+        for row in rows:
+            if PLACEHOLDER in row.sections_json:
+                continue
+            return {"title": row.title, "sections": json.loads(row.sections_json), "label": row.label}
+        return None
+
+
+def _is_fallback(out) -> bool:
+    """模型网关在失败时会把 fallback 原样返回并打标；这类结果不能当成讲解。"""
+    return not isinstance(out, dict) or out.get("_mode") in ("mock", "mock_fallback") or bool(out.get("_parse")) or bool(out.get("_model_error"))
 
 
 def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
@@ -86,7 +97,7 @@ def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
     user_msg = "<source>\n" + json.dumps(payload, ensure_ascii=False) + "\n</source>"
     offline = not has_llm(task=PROMPT_NAME)
     fallback = {"title": unit["title"], "sections": [
-        {"heading": unit["title"], "content": "（讲解暂未生成，可稍后再点本讲）", "example": ""}]}
+        {"heading": unit["title"], "content": PLACEHOLDER, "example": ""}]}
     last: dict = {}
     lecture: dict = {}
     valid = False
@@ -94,6 +105,8 @@ def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
         started = time.perf_counter()
         try:
             last = chat_json(system, user_msg, fallback=fallback, task=PROMPT_NAME, timeout=60, max_tokens=4000)
+            if _is_fallback(last):
+                raise ValueError("fallback")
             data = {k: v for k, v in last.items() if not k.startswith("_")}
             lecture = Lecture.model_validate(data).model_dump()
             valid = True
@@ -119,6 +132,8 @@ def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
                        prompt_version=f"{PROMPT_NAME}@{PROMPT_VERSION}", problem_type="格式错",
                        fix_note="两次结构检查失败，已使用占位讲解")
         lecture = fallback
+        # 占位讲解不进缓存，用户再点一次就会重新生成。
+        return {"title": lecture["title"], "sections": lecture["sections"], "label": LABEL}, True
 
     with SessionLocal() as session:
         session.add(UnitLecture(id=uuid.uuid4().hex, user_id=user_id, outline_id=outline_id, unit_no=unit_no,
