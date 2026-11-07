@@ -441,3 +441,11 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .v2-gate.ready { color: var(--xm-primary); }
 .v2-gate.done .v2-dot { background: var(--xm-primary); border-color: var(--xm-primary); color: var(--xm-primary-fg); border-style: solid; }
 .v2-gate.done { color: var(--xm-ink); }
+
+/* V2.2 今天完成 */
+.v2-celebrate { display: flex; gap: 12px; align-items: center; }
+.v2-celebrate h3 { margin: 0; }
+.v2-celebrate p { margin: 2px 0 0; }
+.v2-celebrate-avatar { flex: none; display: inline-block; animation: v2-hop 900ms ease-out 2; }
+@keyframes v2-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px) rotate(-4deg); } 70% { transform: translateY(0) rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { .v2-celebrate-avatar { animation: none; } }

@@ -101,6 +101,15 @@ export async function submitExam(id: string, answers: Record<string, string>): P
   return { ok: true, report: result.data };
 }
 
+export type TodaySummary = { all_done: boolean; lines: string[]; total_days: number; week_days: number };
+
+/** V2.2 当日总结；读不到返回 null。 */
+export async function getTodaySummary(): Promise<TodaySummary | null> {
+  const result = await request<TodaySummary>("/api/v2/today/summary");
+  if (!result.ok || !Array.isArray(result.data.lines)) return null;
+  return result.data;
+}
+
 /** 「学下一讲」学完后记进度，明天从再下一讲开始。 */
 export async function advanceProgress(unitNo: number): Promise<{ ok: true; learnedUpTo: number } | Fail> {
   const result = await request<{ learned_up_to: number }>("/api/v2/progress", { method: "POST", body: JSON.stringify({ unit_no: unitNo }) });

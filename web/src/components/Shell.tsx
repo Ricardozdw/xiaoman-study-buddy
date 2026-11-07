@@ -17,6 +17,7 @@ import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
 import { advanceProgress, getCurrentOutline, getStatus, type OutlineView } from "../lines/v2/api";
 import { ExamCard } from "../lines/v2/ExamCard";
+import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
 import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
 import { OutlineRail } from "../lines/v2/OutlineRail";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
@@ -276,7 +277,7 @@ export function Shell() {
   const learnedUpTo = outline?.learned_up_to ?? 0;
   const allLearned = !outline || learnedUpTo >= outline.units.length;
   const allDoneToday = plan.tasks.length > 0 && plan.tasks.every((task) => task.status === "done");
-  const nextUnit = outline && !goalDone && allDoneToday && !allLearned ? outline.units[learnedUpTo] : undefined;
+  const nextUnit = outline && !goalDone && allDoneToday && !allLearned ? outline.units[learnedUpTo] : undefined; // 当日总结卡里的「学下一讲」
   const nextExtra = nextUnit ? { no: nextUnit.no ?? learnedUpTo + 1, title: nextUnit.title } : null;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
@@ -454,13 +455,8 @@ export function Shell() {
             )}
             {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
             {activeExam && <ExamCard onDone={() => { setActiveExam(false); void refreshStudy(); }} />}
-            {v2Enabled && nextExtra && !activeLecture && !activeExam && extraLecture === null && (
-              <Card as="section" aria-label="学下一讲">
-                <p>今天三件都做完了。还想多学一点的话，可以接着学第 {nextExtra.no} 讲「{nextExtra.title}」，明天就从再下一讲开始。</p>
-                <div className="btns">
-                  <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setExtraLecture(nextExtra.no)}>学第 {nextExtra.no} 讲</Button>
-                </div>
-              </Card>
+            {v2Enabled && outline && !goalDone && allDoneToday && !activeLecture && !activeExam && extraLecture === null && (
+              <DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} />
             )}
             {reviewLecture !== null && (
               <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />

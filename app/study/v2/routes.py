@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import assessment, completion, exam, lecture, service
+from . import assessment, completion, exam, lecture, service, summary
 from .outline import Unit
 
 router = APIRouter()
@@ -35,6 +35,11 @@ class PatchBody(BaseModel):
 class LectureBody(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     unit_no: int = Field(ge=1)
+
+
+@router.get("/api/v2/today/summary")
+def today_summary(user_id: str = Depends(require_user)):
+    return pack(summary.today(user_id), mock=False)
 
 
 @router.post("/api/v2/progress")

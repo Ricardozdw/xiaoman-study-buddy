@@ -100,6 +100,10 @@ def advance(user_id, unit_no):
             raise HTTPException(422, "只能接着学下一讲")
         if unit_no == learned + 1:
             summary["learned_up_to"] = unit_no
+            day = plan_service.today_for(user_id).isoformat()
+            extra = summary.get("v2_extra") if isinstance(summary.get("v2_extra"), dict) else {}
+            nos = extra.get("nos", []) if extra.get("day") == day else []
+            summary["v2_extra"] = {"day": day, "nos": [*nos, unit_no]}  # 当日总结用：今天多学了哪几讲
             goal.summary_json = _dump(summary)
             learned = unit_no
         return {"learned_up_to": learned}

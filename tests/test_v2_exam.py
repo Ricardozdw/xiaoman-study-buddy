@@ -146,3 +146,28 @@ def test_learn_next_counts_progress_for_tomorrow(api, owner):
     post(api, owner, "/api/demo/clock", {"days": 1})
     tomorrow = tasks(api, owner)
     assert tomorrow["learn"]["ref"]["lecture_no"] == 3 and tomorrow["exam"]["ref"]["lecture_no"] == 3
+
+
+def test_today_summary_counts_and_keeps_total_days(api, owner):
+    accept(api, owner)
+    assert get(api, owner, "/api/v2/today/summary")["all_done"] is False
+    today = tasks(api, owner)
+    for kind in ("learn", "practice"):
+        assert api.patch(f"/api/tasks/{today[kind]['id']}", headers=owner[1], json={"status": "done"}).status_code == 200
+    exam = post(api, owner, f"{BASE}/start")
+    post(api, owner, f"{BASE}/{exam['id']}/submit", {"answers": {q["id"]: "B" for q in exam["questions"]}})
+    post(api, owner, "/api/v2/progress", {"unit_no": 2})
+    data = get(api, owner, "/api/v2/today/summary")
+    assert data["all_done"] is True
+    assert [item["no"] for item in data["lectures"]] == [1, 2] and all(item["title"] for item in data["lectures"])
+    assert data["exam"]["kind"] == "daily" and data["exam"]["total"] == len(exam["questions"])
+    assert data["practice"]["total"] == 0  # 考试题不算练一练
+    assert data["total_days"] == 1 and data["lines"][-1].startswith("累计学了 1 天")
+    assert all("连续" not in line for line in data["lines"])
+
+    post(api, owner, "/api/demo/clock", {"days": 2})  # 隔一天没学
+    first = tasks(api, owner)["learn"]
+    assert api.patch(f"/api/tasks/{first['id']}", headers=owner[1], json={"status": "done"}).status_code == 200
+    again = get(api, owner, "/api/v2/today/summary")
+    assert again["total_days"] == 2 and again["all_done"] is False  # 断了不清零
+    assert [item["no"] for item in again["lectures"]] == [3]
