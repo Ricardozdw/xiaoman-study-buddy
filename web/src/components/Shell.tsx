@@ -15,7 +15,10 @@ import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Referen
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
-import { Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
+import { getStatus } from "../lines/v2/api";
+import { AcceptedOutlineBar, GoalFlowV2 } from "../lines/v2/GoalFlowV2";
+import { OUTLINE_BADGE, answerUsesOutlineSource } from "../lines/v2/source";
+import { Badge, Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
 type Tab = "note" | "page" | "board";
@@ -78,6 +81,8 @@ export function Shell() {
   const [permissions, setPermissions] = useState<Permissions | null>(null);
   // 往下滑时小满缩成顶部小头像，给对话腾出地方。
   const [compact, setCompact] = useState(false);
+  // 只读一次。404 或连不上时 getStatus 为 false，对话仍走计划线原来的定目标。
+  const [v2Enabled, setV2Enabled] = useState<boolean | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
 
   const companionRef = useRef<HTMLDivElement>(null);
@@ -133,6 +138,13 @@ export function Shell() {
   useEffect(() => {
     document.documentElement.dataset.font = font;
   }, [font]);
+
+  useEffect(() => {
+    if (!qa.sessionReady) return;
+    let cancelled = false;
+    void getStatus().then((enabled) => { if (!cancelled) setV2Enabled(enabled); });
+    return () => { cancelled = true; };
+  }, [qa.sessionReady]);
 
   useEffect(() => {
     setPageText("");
@@ -222,6 +234,8 @@ export function Shell() {
   }
 
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
+  const showV2Goal = source === "api" && v2Enabled === true && plan.needs_setup === true;
+  const waitForV2 = source === "api" && v2Enabled === null && plan.needs_setup === true;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
   const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
@@ -362,7 +376,9 @@ export function Shell() {
           </div>
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
             <p className="day">今天 · {plan.date}</p>
-            {source === "api" && <PlanLine inChat showDemo={DEV} />}
+            {showV2Goal && <GoalFlowV2 today={plan.date} />}
+            {source === "api" && !waitForV2 && !showV2Goal && <PlanLine inChat showDemo={DEV} />}
+            {source === "api" && v2Enabled === true && !showV2Goal && <AcceptedOutlineBar today={plan.date} />}
             {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}
@@ -386,7 +402,12 @@ export function Shell() {
                 />
               </div>
             ) : entry.kind === "qa" ? (
-              <QaAnswer key={entry.answer.id} answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+              <Fragment key={entry.answer.id}>
+                {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
+                  <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
+                )}
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+              </Fragment>
             ) : (
               <Fragment key={entry.turn.id}>
                 <Bubble role="user">{entry.turn.question}</Bubble>

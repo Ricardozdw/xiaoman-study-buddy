@@ -386,3 +386,26 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .rail-empty { display: grid; gap: 12px; padding: 16px; border: 1px dashed var(--xm-card-border); border-radius: var(--xm-radius-task); color: var(--t2); font-size: 14px; }
 .rail-empty p { margin: 0; line-height: 1.6; }
 .today-list .task-action { margin: 6px 0 0 auto; display: flex; }
+
+/* V2 */
+.v2-flow { display: grid; gap: 10px; min-width: 0; }
+.v2-flow .card { max-width: 100%; }
+.v2-source { margin: 0 0 6px; }
+.v2-units { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.v2-unit { border: 1px solid var(--xm-card-border); border-radius: var(--xm-radius-task); padding: 8px 12px; background: var(--xm-card-bg-start); overflow-wrap: anywhere; }
+.v2-unit summary { cursor: pointer; }
+.v2-points { margin: 6px 0 0; padding-left: 1.2em; }
+.v2-edit { display: grid; gap: 8px; }
+.v2-field { display: grid; gap: 6px; margin-top: 8px; min-width: 0; }
+.v2-field input, .v2-field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--xm-button-height);
+  border: 1px solid var(--xm-line);
+  border-radius: var(--xm-button-radius);
+  background: var(--xm-bg);
+  color: var(--xm-ink);
+  font: inherit;
+  padding: 8px 12px;
+}
+.v2-field textarea { min-height: 72px; resize: vertical; }
