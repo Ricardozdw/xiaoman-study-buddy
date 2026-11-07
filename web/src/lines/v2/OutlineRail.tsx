@@ -1,25 +1,46 @@
+import { Fragment } from "react";
 import type { OutlineView } from "./api";
+import { pathNodes } from "./logic";
 
-/** 块4：确认后的大纲留在左栏，随时可看；正在学的单元默认展开。 */
-export function OutlineRail({ outline, currentNo }: { outline: OutlineView; currentNo: number | null }) {
+/**
+ * V2.2 学习路径图：学过的点亮、今天这一讲高亮、阶段测验是路上的关卡。
+ * 学过的讲可以「再看一遍讲解」（读缓存，不再调模型）；没学的只看要点，不能跳讲。
+ */
+export function OutlineRail({ outline, currentNo, onReview }: { outline: OutlineView; currentNo: number | null; onReview?: (unitNo: number) => void }) {
+  const nodes = pathNodes(outline, currentNo);
+  const learned = outline.learned_up_to ?? 0;
   return (
-    <section className="rail-section" aria-label="学习大纲">
-      <h2>学习大纲</h2>
-      <p className="aux">{outline.title} · 共 {outline.units.length} 讲 · 通用知识，没有出处</p>
-      <ul className="v2-units">
-        {outline.units.map((unit, index) => {
-          const no = unit.no ?? index + 1;
-          const current = no === currentNo;
-          return (
-            <li key={no}>
-              <details className="v2-unit" open={current}>
-                <summary>第 {no} 讲 · {unit.title}{current ? "（正在学）" : ""}</summary>
-                <ul className="v2-points">{unit.points.map((point, pointIndex) => <li key={pointIndex}>{point}</li>)}</ul>
+    <section className="rail-section" aria-label="学习路径">
+      <h2>学习路径</h2>
+      <p className="aux">{outline.title} · 学了 {Math.min(learned, outline.units.length)} / {outline.units.length} 讲 · 通用知识，没有出处</p>
+      <ol className="v2-path">
+        {nodes.map((node) => (
+          <Fragment key={node.no}>
+            <li className={`v2-node ${node.state}`}>
+              <span className="v2-dot" aria-hidden="true">{node.state === "done" ? "✓" : node.no}</span>
+              <details open={node.state === "today"}>
+                <summary>
+                  <span className="v2-node-title">第 {node.no} 讲 · {node.title}</span>
+                  <span className="v2-node-tag">{node.state === "today" ? "今天" : node.state === "done" ? "学过" : "未学"}</span>
+                </summary>
+                <ul className="v2-points">{node.points.map((point, index) => <li key={index}>{point}</li>)}</ul>
+                {node.learned && onReview && (
+                  <button type="button" className="v2-link" onClick={() => onReview(node.no)}>再看一遍讲解</button>
+                )}
               </details>
             </li>
-          );
-        })}
-      </ul>
+            {node.checkpoint && (
+              <li className={`v2-gate ${node.checkpoint.status}`}>
+                <span className="v2-dot" aria-hidden="true">★</span>
+                <span>
+                  阶段 {node.checkpoint.stage_no} 测验 ·{" "}
+                  {node.checkpoint.status === "done" ? `${node.checkpoint.score ?? 0} 分` : node.checkpoint.status === "ready" ? "可以考了，在今天的考试里" : "学完这一段再考"}
+                </span>
+              </li>
+            )}
+          </Fragment>
+        ))}
+      </ol>
     </section>
   );
 }

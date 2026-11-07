@@ -323,3 +323,28 @@ export function firstLectureStep(outline: UnitTitles | null, tasks: LearnTask[])
   const title = outline.units.find((unit, index) => (unit.no ?? index + 1) === 1)?.title ?? outline.units[0].title;
   return { unitNo: 1, taskId: task.id, text: `大纲好了，我们从第 1 讲「${title}」开始。` };
 }
+
+type PathOutline = {
+  units: { no?: number; title: string; points: string[] }[];
+  learned_up_to?: number;
+  checkpoints?: { stage_no: number; after_unit: number; title: string; status: "upcoming" | "ready" | "done"; score: number | null }[];
+};
+export type PathNode = {
+  no: number;
+  title: string;
+  points: string[];
+  state: "done" | "today" | "upcoming";
+  learned: boolean;
+  checkpoint: NonNullable<PathOutline["checkpoints"]>[number] | null;
+};
+
+/** V2.2 路径图：每讲的状态 + 阶段关卡挂在该阶段最后一讲后面。 */
+export function pathNodes(outline: PathOutline, currentNo: number | null): PathNode[] {
+  const learned = outline.learned_up_to ?? 0;
+  const gates = new Map((outline.checkpoints ?? []).map((gate) => [gate.after_unit, gate]));
+  return outline.units.map((unit, index) => {
+    const no = unit.no ?? index + 1;
+    const state = no === currentNo ? "today" : no <= learned ? "done" : "upcoming";
+    return { no, title: unit.title, points: unit.points, state, learned: no <= learned, checkpoint: gates.get(no) ?? null };
+  });
+}

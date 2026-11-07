@@ -94,6 +94,9 @@ def test_next_day_exam_puts_yesterdays_mistakes_first(api, owner):
 def test_stage_day_exam_is_the_stage_assessment(api, owner):
     outline = accept(api, owner)
     stage = outline["stages"][0]["unit_nos"]
+    checkpoints = get(api, owner, "/api/v2/outline/current")["outline"]["checkpoints"]
+    assert [c["status"] for c in checkpoints] == ["upcoming"] * len(outline["stages"])
+    assert checkpoints[0]["after_unit"] == stage[-1]
     for _ in range(len(stage)):
         learn = tasks(api, owner).get("learn")
         assert api.patch(f"/api/tasks/{learn['id']}", headers=owner[1], json={"status": "done"}).status_code == 200
@@ -103,7 +106,10 @@ def test_stage_day_exam_is_the_stage_assessment(api, owner):
     quiz = post(api, owner, f"{BASE}/start")
     assert quiz["type"] == "stage" and len(quiz["questions"]) == 10
     answers = {question["id"]: "B" for question in quiz["questions"]}
-    post(api, owner, f"/api/v2/assessment/{quiz['id']}/submit", {"answers": answers})
+    assert get(api, owner, "/api/v2/outline/current")["outline"]["checkpoints"][0]["status"] == "ready"
+    report = post(api, owner, f"/api/v2/assessment/{quiz['id']}/submit", {"answers": answers})
+    first = get(api, owner, "/api/v2/outline/current")["outline"]["checkpoints"][0]
+    assert first["status"] == "done" and first["score"] == report["score"]
     now = tasks(api, owner)
     assert now["exam"]["status"] == "done" and now["practice"]["status"] == "todo"
 

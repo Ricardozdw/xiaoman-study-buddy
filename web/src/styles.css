@@ -417,3 +417,27 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .v2-lines { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 .v2-lines li { display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
 .v2-options .btn[aria-pressed="true"] { background: linear-gradient(180deg, var(--xm-selected-start), var(--xm-selected-end)); border-color: var(--xm-focus); }
+
+/* V2.2 学习路径图 */
+.v2-path { list-style: none; margin: 8px 0 0; padding: 0 0 0 4px; display: grid; gap: 0; }
+.v2-path > li { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 0 0 12px; min-width: 0; }
+.v2-path > li::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--xm-line); }
+.v2-path > li:last-child::before { display: none; }
+.v2-path > li.done::before, .v2-path > li.v2-gate.done::before { background: var(--xm-brand); }
+.v2-dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  background: var(--xm-bg); border: 2px solid var(--xm-line); color: var(--xm-muted); position: relative; z-index: 1; }
+.v2-node.done .v2-dot { background: var(--xm-brand); border-color: var(--xm-brand); color: var(--xm-primary-fg); }
+.v2-node.today .v2-dot { border-color: var(--xm-primary); color: var(--xm-primary); box-shadow: 0 0 0 4px var(--xm-soft); }
+.v2-node details { min-width: 0; overflow-wrap: anywhere; }
+.v2-node summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; justify-content: space-between; min-height: 28px; }
+.v2-node.upcoming .v2-node-title { color: var(--xm-muted); }
+.v2-node.today .v2-node-title { font-weight: 600; color: var(--xm-primary); }
+.v2-node-tag { flex: none; font-size: 12px; color: var(--xm-muted); }
+.v2-node.today .v2-node-tag { color: var(--xm-primary); }
+.v2-link { margin-top: 6px; padding: 0; border: 0; background: none; color: var(--xm-primary); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; min-height: 32px; }
+.v2-gate { align-items: center; font-size: 13px; color: var(--xm-muted); }
+.v2-gate .v2-dot { border-style: dashed; }
+.v2-gate.ready .v2-dot { border-color: var(--xm-primary); color: var(--xm-primary); border-style: solid; }
+.v2-gate.ready { color: var(--xm-primary); }
+.v2-gate.done .v2-dot { background: var(--xm-primary); border-color: var(--xm-primary); color: var(--xm-primary-fg); border-style: solid; }
+.v2-gate.done { color: var(--xm-ink); }

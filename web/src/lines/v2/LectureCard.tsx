@@ -8,7 +8,7 @@ export type Lecture = {
   label: string;
 };
 
-export function LectureCard({ unitNo, onDone }: { unitNo: number; onDone: () => void }) {
+export function LectureCard({ unitNo, onDone, doneLabel = "学完了，进入下一件" }: { unitNo: number; onDone: () => void; doneLabel?: string }) {
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +41,7 @@ export function LectureCard({ unitNo, onDone }: { unitNo: number; onDone: () => 
               {section.example && <p className="aux">例：{section.example}</p>}
             </section>
           ))}
-          <Button variant="primary" onClick={onDone}>学完了，进入下一件</Button>
+          <Button variant="primary" onClick={onDone}>{doneLabel}</Button>
         </>
       )}
     </Card>

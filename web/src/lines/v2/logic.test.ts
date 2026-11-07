@@ -282,3 +282,19 @@ describe("块4 大纲保留与下一步", () => {
     expect(currentUnitNo([learn("t1", 3, "done"), { id: "e", kind: "exam", status: "todo" }])).toBe(3);
   });
 });
+
+describe("V2.2 学习路径图", () => {
+  it("学过 / 今天 / 未学，关卡挂在阶段最后一讲后面", async () => {
+    const { pathNodes } = await import("./logic");
+    const outline = {
+      units: [1, 2, 3, 4].map((no) => ({ no, title: `单元${no}`, points: ["要点"] })),
+      learned_up_to: 2,
+      checkpoints: [{ stage_no: 1, after_unit: 2, title: "", status: "ready" as const, score: null }],
+    };
+    const nodes = pathNodes(outline, 3);
+    expect(nodes.map((n) => n.state)).toEqual(["done", "done", "today", "upcoming"]);
+    expect(nodes.map((n) => n.checkpoint?.stage_no ?? null)).toEqual([null, 1, null, null]);
+    expect(nodes.map((n) => n.learned)).toEqual([true, true, false, false]);
+    expect(pathNodes(outline, 2)[1]).toMatchObject({ state: "today", learned: true }); // 今天学完了仍高亮、可回看
+  });
+});

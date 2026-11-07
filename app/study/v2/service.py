@@ -60,7 +60,30 @@ def current(user_id):
             return None
         goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
         learned = json.loads(goal.summary_json or "{}").get("learned_up_to") if goal else 0
-        return {**view(row), "learned_up_to": learned if isinstance(learned, int) else 0}
+        learned = learned if isinstance(learned, int) else 0
+        return {**view(row), "learned_up_to": learned, "checkpoints": _checkpoints(session, user_id, row, learned)}
+
+
+def _checkpoints(session, user_id, row, learned):
+    """V2.2 路径图的关卡：每个阶段末尾一个。已考给分数；该阶段都学完了就是可以考。"""
+    from .models import Assessment
+    scores = {}
+    for record in session.scalars(select(Assessment).where(
+            Assessment.user_id == user_id, Assessment.outline_id == row.id,
+            Assessment.stage_no > 0, Assessment.status == "submitted")):
+        scores[record.stage_no] = record.score
+    out = []
+    for stage in json.loads(row.stages_json):
+        no = stage["no"]
+        if no in scores:
+            status = "done"
+        elif stage["unit_nos"] and max(stage["unit_nos"]) <= learned:
+            status = "ready"
+        else:
+            status = "upcoming"
+        out.append({"stage_no": no, "after_unit": max(stage["unit_nos"]) if stage["unit_nos"] else 0,
+                    "title": stage.get("title", ""), "status": status, "score": scores.get(no)})
+    return out
 
 
 def advance(user_id, unit_no):

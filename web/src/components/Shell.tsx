@@ -94,6 +94,7 @@ export function Shell() {
   const [outline, setOutline] = useState<OutlineView | null>(null);
   const [activeExam, setActiveExam] = useState(false);
   const [extraLecture, setExtraLecture] = useState<number | null>(null);
+  const [reviewLecture, setReviewLecture] = useState<number | null>(null);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -362,7 +363,7 @@ export function Shell() {
             })}
           </ol>
           )}
-          {outline && !goalDone && <OutlineRail outline={outline} currentNo={currentUnitNo(plan.tasks)} />}
+          {outline && !goalDone && <OutlineRail outline={outline} currentNo={currentUnitNo(plan.tasks)} onReview={(no) => { setReviewLecture(no); setRail(false); }} />}
           <section className="rail-section">
             <h2>我的资料</h2>
             {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
@@ -460,6 +461,9 @@ export function Shell() {
                   <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setExtraLecture(nextExtra.no)}>学第 {nextExtra.no} 讲</Button>
                 </div>
               </Card>
+            )}
+            {reviewLecture !== null && (
+              <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />
             )}
             {extraLecture !== null && (
               <LectureCard unitNo={extraLecture} onDone={() => {

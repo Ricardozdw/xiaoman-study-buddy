@@ -14,7 +14,9 @@ export type OutlineView = {
   label: string;
   mock: boolean;
   learned_up_to?: number;
+  checkpoints?: Checkpoint[];
 };
+export type Checkpoint = { stage_no: number; after_unit: number; title: string; status: "upcoming" | "ready" | "done"; score: number | null };
 
 type Fail = { ok: false; message: string };
 type OutlineResult = { ok: true; outline: OutlineView } | Fail;
