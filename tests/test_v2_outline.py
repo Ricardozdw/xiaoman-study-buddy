@@ -60,7 +60,9 @@ def test_stage_count_rejects_invalid_values(count):
         outline.split_stages(count)
 
 
-CASES = json.loads((Path(__file__).parents[1] / "evals/cases/goal_outline.json").read_text())
+CASES = json.loads(
+    (Path(__file__).parents[1] / "app/study/v2/evals/goal_outline.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case:case["title"])
