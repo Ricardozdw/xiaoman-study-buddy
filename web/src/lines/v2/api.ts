@@ -36,6 +36,13 @@ export async function getPlanDate(): Promise<string | null> {
   return date;
 }
 
+/** 当前目标已确认的大纲；没有、没连上都返回 null。 */
+export async function getCurrentOutline(): Promise<OutlineView | null> {
+  const result = await api<{ outline?: OutlineView | null }>("/api/v2/outline/current");
+  if (result.source !== "api" || result.envelope.ok === false) return null;
+  return asOutline(result.envelope.data?.outline ?? undefined);
+}
+
 export async function draftOutline(body: DraftBody): Promise<OutlineResult> {
   const payload: DraftBody = { ...body };
   if (!payload.deadline) delete payload.deadline;

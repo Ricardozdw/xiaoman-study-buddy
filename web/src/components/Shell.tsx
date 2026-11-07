@@ -15,14 +15,16 @@ import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Referen
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
-import { getStatus } from "../lines/v2/api";
+import { getCurrentOutline, getStatus, type OutlineView } from "../lines/v2/api";
+import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
+import { OutlineRail } from "../lines/v2/OutlineRail";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
 import { subscribeGoalDone } from "../lines/v2/done";
 import { AcceptedOutlineBar } from "../lines/v2/GoalFlowV2";
 import { OUTLINE_BADGE, answerUsesOutlineSource } from "../lines/v2/source";
 import { V2Cards } from "../lines/v2/V2Cards";
 import { LectureCard } from "../lines/v2/LectureCard";
-import { Badge, Bubble, Button, Icon, IconButton, TaskArt } from "./ui";
+import { Badge, Bubble, Button, Card, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
 type Tab = "note" | "page" | "board";
@@ -88,6 +90,7 @@ export function Shell() {
   // 只读一次。404 或连不上时 getStatus 为 false，对话仍走计划线原来的定目标。
   const [v2Enabled, setV2Enabled] = useState<boolean | null>(null);
   const [activeLecture, setActiveLecture] = useState<{ unitNo: number; taskId: string } | null>(null);
+  const [outline, setOutline] = useState<OutlineView | null>(null);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -152,6 +155,17 @@ export function Shell() {
     void getStatus().then((enabled) => { if (!cancelled) setV2Enabled(enabled); });
     return () => { cancelled = true; };
   }, [qa.sessionReady]);
+
+  // 块4：确认后的大纲留在左栏。
+  useEffect(() => {
+    if (v2Enabled !== true || plan.needs_setup === true) {
+      setOutline(null);
+      return;
+    }
+    let cancelled = false;
+    void getCurrentOutline().then((data) => { if (!cancelled) setOutline(data); });
+    return () => { cancelled = true; };
+  }, [v2Enabled, plan.needs_setup, plan.date]);
 
   useEffect(() => {
     if (v2Enabled !== true) {
@@ -253,6 +267,7 @@ export function Shell() {
 
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
   const waitForV2 = source === "api" && v2Enabled === null && plan.needs_setup === true;
+  const firstStep = goalDone ? null : firstLectureStep(outline, plan.tasks);
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
   const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
@@ -328,6 +343,7 @@ export function Shell() {
             })}
           </ol>
           )}
+          {outline && !goalDone && <OutlineRail outline={outline} currentNo={currentUnitNo(plan.tasks)} />}
           <section className="rail-section">
             <h2>我的资料</h2>
             {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
@@ -407,6 +423,15 @@ export function Shell() {
             {source === "api" && v2Enabled === true && plan.needs_setup === true && <Bubble role="xiaoman">我是小满。说说你想学成什么样，我帮你拆成每天的小任务。</Bubble>}
             {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} />}
             {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
+            {v2Enabled && !activeLecture && firstStep && (
+              <Card as="section" aria-label="下一步">
+                <p>{firstStep.text}</p>
+                <div className="btns">
+                  <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setActiveLecture({ unitNo: firstStep.unitNo, taskId: firstStep.taskId })}>学第 1 讲</Button>
+                  <Button onClick={() => setRail(true)}>看大纲</Button>
+                </div>
+              </Card>
+            )}
             {v2Enabled && <V2Cards doneCount={doneCount} />}
             {activeLecture && (
               <LectureCard unitNo={activeLecture.unitNo} onDone={() => { void toggleTask(activeLecture.taskId, "todo"); setActiveLecture(null); }} />

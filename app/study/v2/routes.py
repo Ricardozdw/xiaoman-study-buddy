@@ -53,6 +53,12 @@ def _pack_outline(data):
     return pack(data, mock=data.get("mock", False))
 
 
+@router.get("/api/v2/outline/current")
+def current_outline(user_id: str = Depends(require_user)):
+    data = service.current(user_id)
+    return pack({"outline": data}, mock=bool(data and data["mock"]))
+
+
 @router.post("/api/v2/outline/draft")
 def draft_outline(body: DraftBody, user_id: str = Depends(require_user)):
     return _pack_outline(service.draft(user_id, body.model_dump(mode="json")))

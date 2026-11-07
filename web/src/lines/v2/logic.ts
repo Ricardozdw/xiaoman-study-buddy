@@ -304,3 +304,21 @@ export function acceptanceNotice(stored: AcceptedOutline | null, today: string):
   if (!stored?.id || stored.day !== today) return null;
   return { id: stored.id, text: ACCEPTED_TEXT };
 }
+
+type LearnTask = { id: string; kind?: string; status: string; ref?: { source?: string; lecture_no?: number } };
+type UnitTitles = { units: { no?: number; title: string }[] };
+
+/** 正在学的单元：今天第一件没完成的「学第 N 讲」；没有则 null。 */
+export function currentUnitNo(tasks: LearnTask[]): number | null {
+  const task = tasks.find((item) => item.kind === "learn" && item.status !== "done" && item.ref?.source === "lecture" && typeof item.ref.lecture_no === "number");
+  return task?.ref?.lecture_no ?? null;
+}
+
+/** 块4：确认大纲后、第 1 讲还没学完时，明确告诉用户下一步。 */
+export function firstLectureStep(outline: UnitTitles | null, tasks: LearnTask[]): { unitNo: number; taskId: string; text: string } | null {
+  if (!outline || !outline.units.length) return null;
+  const task = tasks.find((item) => item.kind === "learn" && item.status !== "done" && item.ref?.source === "lecture" && item.ref.lecture_no === 1);
+  if (!task) return null;
+  const title = outline.units.find((unit, index) => (unit.no ?? index + 1) === 1)?.title ?? outline.units[0].title;
+  return { unitNo: 1, taskId: task.id, text: `大纲好了，我们从第 1 讲「${title}」开始。` };
+}

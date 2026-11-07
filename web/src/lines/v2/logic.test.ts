@@ -258,3 +258,26 @@ describe("来源标记与当天撤销", () => {
     expect(acceptanceNotice(null, TODAY)).toBeNull();
   });
 });
+
+describe("块4 大纲保留与下一步", () => {
+  const outline = { units: [{ no: 1, title: "认识 AI 产品经理" }, { no: 2, title: "需求分析" }] };
+  const learn = (id: string, no: number, status = "todo") => ({ id, kind: "learn", status, ref: { source: "lecture", lecture_no: no } });
+
+  it("第 1 讲没学完时提示从第 1 讲开始", async () => {
+    const { firstLectureStep } = await import("./logic");
+    expect(firstLectureStep(outline, [learn("t1", 1)])).toEqual({ unitNo: 1, taskId: "t1", text: "大纲好了，我们从第 1 讲「认识 AI 产品经理」开始。" });
+  });
+
+  it("第 1 讲学完、没有大纲或没有任务时不提示", async () => {
+    const { firstLectureStep } = await import("./logic");
+    expect(firstLectureStep(outline, [learn("t1", 1, "done"), learn("t2", 2)])).toBeNull();
+    expect(firstLectureStep(null, [learn("t1", 1)])).toBeNull();
+    expect(firstLectureStep(outline, [])).toBeNull();
+  });
+
+  it("正在学的单元取第一件没完成的学习任务", async () => {
+    const { currentUnitNo } = await import("./logic");
+    expect(currentUnitNo([learn("t1", 1, "done"), { id: "p", kind: "practice", status: "todo" }, learn("t2", 2)])).toBe(2);
+    expect(currentUnitNo([{ id: "p", kind: "practice", status: "todo" }])).toBeNull();
+  });
+});

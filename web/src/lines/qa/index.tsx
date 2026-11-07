@@ -6,7 +6,8 @@ import type { PlanToday } from "../../api/types";
 import type { Answer, Handoff, Lecture, Reference } from "./types";
 import { requestJson, loadSource, submitPlanDecision } from "./transport";
 import { OutlineCard } from "../v2/OutlineCard";
-import { acceptOutline, patchOutline, type OutlineView, type UnitInput } from "../v2/api";
+import { rememberAcceptance } from "../v2/GoalFlowV2";
+import { acceptOutline, getPlanDate, patchOutline, type OutlineView, type UnitInput } from "../v2/api";
 export { useQaConversation } from "./useQaConversation";
 export type { Answer, Reference, Lecture } from "./types";
 
@@ -106,6 +107,8 @@ function GoalOutlineHandoff({ data, active, onQuickReply }: { data: Handoff["dat
       setBusy(true); setError("");
       const result = await acceptOutline(outline!.id);
       if (!result.ok) { setError(result.message); setBusy(false); return; }
+      const day = await getPlanDate();
+      if (day) rememberAcceptance(result.outline.id, day);
       window.location.reload();
     }
     return <OutlineCard outline={outline} busy={busy} error={error} onPatch={patch} onAccept={() => void accept()} onDismiss={() => setDismissed(true)} />;

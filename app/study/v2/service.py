@@ -48,6 +48,17 @@ def view(row):
             "stages": json.loads(row.stages_json), "label": row.label, "mock": row.label == "模拟"}
 
 
+def current(user_id):
+    """当前目标已确认的大纲；没有则返回 None。只读本人的数据。"""
+    from .lecture import current_outline_id
+    outline_id = current_outline_id(user_id)
+    if not outline_id:
+        return None
+    with SessionLocal() as session:
+        row = session.scalar(select(GoalOutline).where(GoalOutline.id == outline_id, GoalOutline.user_id == user_id))
+        return view(row) if row is not None and row.status == "accepted" else None
+
+
 def draft(user_id, goal):
     ensure_schema()
     goal = {**goal, "today": plan_service.today_for(user_id).isoformat()}

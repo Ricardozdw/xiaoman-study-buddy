@@ -247,3 +247,19 @@ def test_real_application_session_middleware_can_bind_request_identity(owner,mon
     from app.study.v2.models import GoalOutline
     with SessionLocal() as session:
         assert session.get(GoalOutline,data['id']).user_id==owner[0]
+
+
+def test_current_outline_follows_accept_undo_and_owner(api, owner, auth):
+    """块4：确认后能读回当前大纲；撤销后为空；别人读不到。"""
+    _, headers = owner
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None
+    data = draft(api, owner)
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None  # 草稿不算
+    path = f'/api/v2/outline/{data["id"]}'
+    assert api.post(path + "/accept", headers=headers).status_code == 200
+    got = api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"]
+    assert got["id"] == data["id"] and got["status"] == "accepted" and got["units"] == data["units"]
+    other = auth("outline-other-" + uuid4().hex)
+    assert api.get("/api/v2/outline/current", headers=other).json()["data"]["outline"] is None
+    assert api.post(path + "/undo", headers=headers).status_code == 200
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None
