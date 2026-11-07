@@ -13,6 +13,7 @@ export type OutlineView = {
   stages: { no: number; title: string; unit_nos: number[]; started_at?: string }[];
   label: string;
   mock: boolean;
+  learned_up_to?: number;
 };
 
 type Fail = { ok: false; message: string };
@@ -73,6 +74,36 @@ export async function undoOutline(id: string): Promise<{ ok: true } | Fail> {
   const result = await api<{ plan_today?: { needs_setup?: boolean } }>(`/api/v2/outline/${encodeURIComponent(id)}/undo`, { method: "POST" });
   if (result.source !== "api" || result.envelope.ok === false) return { ok: false, message: "今天没能撤销，可以稍后再试。" };
   return { ok: true };
+}
+
+export type DailyExamReport = { score: number; correct: number; total: number; summary: string };
+export type ExamPaper =
+  | ({ type: "stage" } & Quiz)
+  | { type: "daily"; id: string; label: string; mock: boolean; lecture_no: number; mistake_count: number; submitted: boolean; report: DailyExamReport | null; questions: QuizQuestion[] };
+
+/** 今天的考试：学完一个阶段那天返回阶段测验，其余是每日考试。 */
+export async function startExam(): Promise<{ ok: true; paper: ExamPaper } | Fail> {
+  const result = await request<ExamPaper>("/api/v2/exam/start", { method: "POST" });
+  if (!result.ok) return result;
+  const paper = result.data;
+  if (!paper || typeof paper.id !== "string" || !Array.isArray(paper.questions) || !paper.questions.length) {
+    return { ok: false, message: "题目还没准备好，请再试一次。" };
+  }
+  return { ok: true, paper };
+}
+
+export async function submitExam(id: string, answers: Record<string, string>): Promise<{ ok: true; report: DailyExamReport } | Fail> {
+  const result = await request<DailyExamReport>(`/api/v2/exam/${encodeURIComponent(id)}/submit`, { method: "POST", body: JSON.stringify({ answers }) });
+  if (!result.ok) return result;
+  if (typeof result.data.score !== "number" || typeof result.data.total !== "number") return { ok: false, message: "成绩还没读到，请再试一次。" };
+  return { ok: true, report: result.data };
+}
+
+/** 「学下一讲」学完后记进度，明天从再下一讲开始。 */
+export async function advanceProgress(unitNo: number): Promise<{ ok: true; learnedUpTo: number } | Fail> {
+  const result = await request<{ learned_up_to: number }>("/api/v2/progress", { method: "POST", body: JSON.stringify({ unit_no: unitNo }) });
+  if (!result.ok) return result;
+  return { ok: true, learnedUpTo: result.data.learned_up_to };
 }
 
 export type StageView = { no: number; title: string; unit_nos: number[] };

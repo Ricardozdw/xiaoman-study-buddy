@@ -151,6 +151,8 @@ function LegacyHandoff({ handoff, onPlanChange, active = true }: { handoff: Hand
     try {
       const response = await requestJson<{ correct: boolean; analysis: string; label?: string }>("/api/attempts", { method: "POST", body: JSON.stringify({ question_id: question.id, answer, seconds: 0, confidence: "" }) });
       setGrade(response.data);
+      // 做了就算完成：计划线会自动勾掉「练一练」，这里刷新左栏。
+      try { onPlanChange?.((await requestJson<PlanToday>("/api/plan/today")).data); } catch { /* 刷新失败不影响作答 */ }
     } catch (error) { setError(error instanceof Error ? error.message : "答案提交失败，请重试。"); }
     finally { setBusy(false); }
   }

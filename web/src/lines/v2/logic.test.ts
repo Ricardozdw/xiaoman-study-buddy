@@ -279,5 +279,6 @@ describe("块4 大纲保留与下一步", () => {
     const { currentUnitNo } = await import("./logic");
     expect(currentUnitNo([learn("t1", 1, "done"), { id: "p", kind: "practice", status: "todo" }, learn("t2", 2)])).toBe(2);
     expect(currentUnitNo([{ id: "p", kind: "practice", status: "todo" }])).toBeNull();
+    expect(currentUnitNo([learn("t1", 3, "done"), { id: "e", kind: "exam", status: "todo" }])).toBe(3);
   });
 });

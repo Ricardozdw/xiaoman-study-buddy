@@ -81,7 +81,7 @@ export function Icon({ name, className }: { name: IconName; className?: string }
 }
 
 /** 今天三件的三种图标：学新的（书）、练一练（纸笔）、补一补（复习页）。 */
-export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" }) {
+export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" | "exam" }) {
   return (
     <span className="task-art" aria-hidden="true">
       <svg viewBox="0 0 40 40">
@@ -116,6 +116,15 @@ export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" }) {
             <path d="m19 27 3-8 5 5z" fill="#e5d4b8" />
             <path d="m19 27 1-3 2 2z" fill="#4e6872" />
             <path d="m29 12 5 5" fill="none" stroke="#e5f3f7" strokeWidth="2" />
+          </>
+        )}
+        {kind === "exam" && (
+          <>
+            <rect x="10" y="8" width="22" height="27" rx="4" fill="#36576b18" />
+            <rect x="8" y="6" width="22" height="27" rx="4" fill="#f9fcfd" stroke="#c9dfe7" />
+            <path d="M13 13h12m-12 5h8" fill="none" stroke="#98b9c7" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="27" cy="27" r="7" fill="#5b9fb6" />
+            <path d="m24 27 2 2 4-4" fill="none" stroke="#f4fafc" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </>
         )}
         {kind === "repair" && (

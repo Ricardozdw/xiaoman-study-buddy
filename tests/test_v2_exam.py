@@ -127,3 +127,16 @@ def test_exam_routes_absent_when_v2_off(monkeypatch, auth):
     app.include_router(routes.router)
     with RawTestClient(app) as client:
         assert client.post(BASE + "/start", headers=auth("exam-off-" + uuid4().hex)).status_code == 404
+
+
+def test_learn_next_counts_progress_for_tomorrow(api, owner):
+    accept(api, owner)
+    learn = tasks(api, owner)["learn"]
+    assert api.patch(f"/api/tasks/{learn['id']}", headers=owner[1], json={"status": "done"}).status_code == 200
+    assert get(api, owner, "/api/v2/outline/current")["outline"]["learned_up_to"] == 1
+    assert post(api, owner, "/api/v2/progress", {"unit_no": 3}, status=422) is None  # 不能跳讲
+    assert post(api, owner, "/api/v2/progress", {"unit_no": 2}) == {"learned_up_to": 2}
+    assert post(api, owner, "/api/v2/progress", {"unit_no": 2}) == {"learned_up_to": 2}  # 重复提交不变
+    post(api, owner, "/api/demo/clock", {"days": 1})
+    tomorrow = tasks(api, owner)
+    assert tomorrow["learn"]["ref"]["lecture_no"] == 3 and tomorrow["exam"]["ref"]["lecture_no"] == 3

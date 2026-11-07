@@ -19,7 +19,11 @@ import { CompletionCard } from "./CompletionCard";
 import { publishGoalDone } from "./done";
 import { ReportCard } from "./ReportCard";
 
-export function V2Cards({ doneCount = 0 }: { doneCount?: number }) {
+/**
+ * examInPlan：今天三件里有「考试」时（V2.1），阶段测验从考试进入，不再单独弹邀请卡。
+ * allLearned：全部讲次学完后才露出「我学完了」入口。
+ */
+export function V2Cards({ doneCount = 0, examInPlan = false, allLearned = true }: { doneCount?: number; examInPlan?: boolean; allLearned?: boolean }) {
   const [today, setToday] = useState("");
   const [completion, setCompletion] = useState<CompletionStatus | null>(null);
   const [stage, setStage] = useState<StageView | null>(null);
@@ -62,10 +66,10 @@ export function V2Cards({ doneCount = 0 }: { doneCount?: number }) {
       setCompletion(loaded.completion);
       setStage(loaded.due.stage ?? null);
       publishGoalDone(loaded.completion.done === true);
-      setView(next.view);
+      setView(examInPlan && next.view === "invite" ? "idle" : next.view);
     })();
     return () => { cancelled = true; };
-  }, [doneCount]);
+  }, [doneCount, examInPlan]);
 
   async function refreshCompletion() {
     const status = await getCompletion();
@@ -173,7 +177,7 @@ export function V2Cards({ doneCount = 0 }: { doneCount?: number }) {
   }
 
   if (view === "loading") return null;
-  const showFinishedEntry = view === "idle" && Boolean(completion?.card) && completion?.done !== true;
+  const showFinishedEntry = allLearned && view === "idle" && Boolean(completion?.card) && completion?.done !== true;
   if (view === "idle" && !showFinishedEntry && !restNote) return null;
 
   return (

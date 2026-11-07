@@ -308,9 +308,10 @@ export function acceptanceNotice(stored: AcceptedOutline | null, today: string):
 type LearnTask = { id: string; kind?: string; status: string; ref?: { source?: string; lecture_no?: number } };
 type UnitTitles = { units: { no?: number; title: string }[] };
 
-/** 正在学的单元：今天第一件没完成的「学第 N 讲」；没有则 null。 */
+/** 正在学的单元：今天第一件没完成的「学第 N 讲」；都学完了就是今天学的那一讲（练、考还在这一讲上）。 */
 export function currentUnitNo(tasks: LearnTask[]): number | null {
-  const task = tasks.find((item) => item.kind === "learn" && item.status !== "done" && item.ref?.source === "lecture" && typeof item.ref.lecture_no === "number");
+  const learn = tasks.filter((item) => item.kind === "learn" && item.ref?.source === "lecture" && typeof item.ref.lecture_no === "number");
+  const task = learn.find((item) => item.status !== "done") ?? learn[learn.length - 1];
   return task?.ref?.lecture_no ?? null;
 }
 

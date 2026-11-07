@@ -37,6 +37,11 @@ class LectureBody(BaseModel):
     unit_no: int = Field(ge=1)
 
 
+@router.post("/api/v2/progress")
+def advance_progress(body: LectureBody, user_id: str = Depends(require_user)):
+    return pack(service.advance(user_id, body.unit_no), mock=False)
+
+
 @router.post("/api/v2/lecture")
 def unit_lecture(body: LectureBody, user_id: str = Depends(require_user)):
     outline_id = lecture.current_outline_id(user_id)

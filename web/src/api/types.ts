@@ -2,7 +2,7 @@ export type Intensity = "light" | "normal" | "sprint";
 
 export type Task = {
   id: string;
-  kind: "learn" | "practice" | "repair";
+  kind: "learn" | "practice" | "repair" | "exam";
   kind_label: string;
   title: string;
   status: "todo" | "done";

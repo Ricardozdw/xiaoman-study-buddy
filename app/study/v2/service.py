@@ -56,7 +56,30 @@ def current(user_id):
         return None
     with SessionLocal() as session:
         row = session.scalar(select(GoalOutline).where(GoalOutline.id == outline_id, GoalOutline.user_id == user_id))
-        return view(row) if row is not None and row.status == "accepted" else None
+        if row is None or row.status != "accepted":
+            return None
+        goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
+        learned = json.loads(goal.summary_json or "{}").get("learned_up_to") if goal else 0
+        return {**view(row), "learned_up_to": learned if isinstance(learned, int) else 0}
+
+
+def advance(user_id, unit_no):
+    """V2.1「学下一讲」：今天三件之外多学的一讲也算进度。只能往后推一讲，重复提交不变。"""
+    with SessionLocal.begin() as session:
+        goal = session.scalar(select(Goal).where(Goal.user_id == user_id).with_for_update())
+        outline_id = json.loads(goal.summary_json or "{}").get("v2", {}).get("outline_id") if goal else ""
+        row = session.scalar(select(GoalOutline).where(GoalOutline.id == outline_id, GoalOutline.user_id == user_id)) if outline_id else None
+        if row is None or row.status != "accepted":
+            raise HTTPException(409, "还没有确认大纲")
+        summary = json.loads(goal.summary_json or "{}")
+        learned = summary.get("learned_up_to") if isinstance(summary.get("learned_up_to"), int) else 0
+        if unit_no > len(json.loads(row.units_json)) or unit_no > learned + 1:
+            raise HTTPException(422, "只能接着学下一讲")
+        if unit_no == learned + 1:
+            summary["learned_up_to"] = unit_no
+            goal.summary_json = _dump(summary)
+            learned = unit_no
+        return {"learned_up_to": learned}
 
 
 def draft(user_id, goal):

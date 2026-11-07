@@ -15,7 +15,8 @@ import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Referen
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
-import { getCurrentOutline, getStatus, type OutlineView } from "../lines/v2/api";
+import { advanceProgress, getCurrentOutline, getStatus, type OutlineView } from "../lines/v2/api";
+import { ExamCard } from "../lines/v2/ExamCard";
 import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
 import { OutlineRail } from "../lines/v2/OutlineRail";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
@@ -91,6 +92,8 @@ export function Shell() {
   const [v2Enabled, setV2Enabled] = useState<boolean | null>(null);
   const [activeLecture, setActiveLecture] = useState<{ unitNo: number; taskId: string } | null>(null);
   const [outline, setOutline] = useState<OutlineView | null>(null);
+  const [activeExam, setActiveExam] = useState(false);
+  const [extraLecture, setExtraLecture] = useState<number | null>(null);
   const [goalDone, setGoalDone] = useState(false);
   const [nextGoalHint, setNextGoalHint] = useState(false);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -165,7 +168,7 @@ export function Shell() {
     let cancelled = false;
     void getCurrentOutline().then((data) => { if (!cancelled) setOutline(data); });
     return () => { cancelled = true; };
-  }, [v2Enabled, plan.needs_setup, plan.date]);
+  }, [v2Enabled, plan.needs_setup, plan.date, plan.tasks.filter((task) => task.status === "done").length]);
 
   useEffect(() => {
     if (v2Enabled !== true) {
@@ -268,6 +271,12 @@ export function Shell() {
   const doneCount = plan.tasks.filter((task) => task.status === "done").length;
   const waitForV2 = source === "api" && v2Enabled === null && plan.needs_setup === true;
   const firstStep = goalDone ? null : firstLectureStep(outline, plan.tasks);
+  const examInPlan = plan.tasks.some((task) => task.kind === "exam");
+  const learnedUpTo = outline?.learned_up_to ?? 0;
+  const allLearned = !outline || learnedUpTo >= outline.units.length;
+  const allDoneToday = plan.tasks.length > 0 && plan.tasks.every((task) => task.status === "done");
+  const nextUnit = outline && !goalDone && allDoneToday && !allLearned ? outline.units[learnedUpTo] : undefined;
+  const nextExtra = nextUnit ? { no: nextUnit.no ?? learnedUpTo + 1, title: nextUnit.title } : null;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const sourceText = source === "loading" ? "正在连接" : source === "api" ? "已连接" : "模拟内容";
   const sourceTitle = source === "mock" ? "后端没接上，用的是本地假数据" : undefined;
@@ -331,6 +340,16 @@ export function Shell() {
                   {!done && task.kind === "learn" && task.ref?.source === "lecture" && (
                     <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setActiveLecture({ unitNo: task.ref!.lecture_no!, taskId: task.id }); setRail(false); }}>
                       学这一讲
+                    </Button>
+                  )}
+                  {!done && v2Enabled && task.kind === "practice" && task.ref?.lecture_no && (
+                    <Button className="task-action" disabled={!qa.sessionReady || qa.busy} onClick={() => { setRail(false); void qa.send(`出几道第 ${task.ref!.lecture_no} 讲的练习题`); }}>
+                      练一练
+                    </Button>
+                  )}
+                  {!done && task.kind === "exam" && (
+                    <Button className="task-action" disabled={!qa.sessionReady} onClick={() => { setActiveExam(true); setRail(false); }}>
+                      开始考试
                     </Button>
                   )}
                   {!done && task.kind === "learn" && task.ref?.source === "upload" && task.ref.lecture_id && (
@@ -432,7 +451,21 @@ export function Shell() {
                 </div>
               </Card>
             )}
-            {v2Enabled && <V2Cards doneCount={doneCount} />}
+            {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
+            {activeExam && <ExamCard onDone={() => { setActiveExam(false); void refreshStudy(); }} />}
+            {v2Enabled && nextExtra && !activeLecture && !activeExam && extraLecture === null && (
+              <Card as="section" aria-label="学下一讲">
+                <p>今天三件都做完了。还想多学一点的话，可以接着学第 {nextExtra.no} 讲「{nextExtra.title}」，明天就从再下一讲开始。</p>
+                <div className="btns">
+                  <Button variant="primary" disabled={!qa.sessionReady} onClick={() => setExtraLecture(nextExtra.no)}>学第 {nextExtra.no} 讲</Button>
+                </div>
+              </Card>
+            )}
+            {extraLecture !== null && (
+              <LectureCard unitNo={extraLecture} onDone={() => {
+                void advanceProgress(extraLecture).then(async () => { setOutline(await getCurrentOutline()); setExtraLecture(null); });
+              }} />
+            )}
             {activeLecture && (
               <LectureCard unitNo={activeLecture.unitNo} onDone={() => { void toggleTask(activeLecture.taskId, "todo"); setActiveLecture(null); }} />
             )}
