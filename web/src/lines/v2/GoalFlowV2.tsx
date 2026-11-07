@@ -5,10 +5,12 @@ import {
   ACCEPT_STORAGE_KEY,
   CONFIRM_SENTENCE,
   QUESTIONS,
+  V2_OPENING,
   acceptanceNotice,
   applyAnswer,
   buildDraft,
   defaultNotes,
+  goalNamePrompt,
   initialGoalState,
   isIsoDate,
   stepProgress,
@@ -175,6 +177,7 @@ export function GoalFlowV2({ today: todayFromPlan }: { today: string }) {
 
   return (
     <section aria-label="计划线" className="v2-flow" ref={rootRef}>
+      <Bubble role="xiaoman">{V2_OPENING}</Bubble>
       {history.map((line, index) => (
         <Bubble key={line.id} role={line.role} grouped={index > 0 && history[index - 1].role === line.role}>{line.text}</Bubble>
       ))}
@@ -232,6 +235,27 @@ function Question({ state, progress, text, dateText, error, busy, onText, onDate
   onChoose: (input: AnswerInput) => void;
 }) {
   if (state.step === "confirm") return null;
+  if (state.step === "goalName") {
+    const prompt = goalNamePrompt(state.goalType);
+    return (
+      <div data-v2-current>
+        <Bubble role="xiaoman">{prompt}</Bubble>
+        <Card aria-label="具体名称">
+          <header><span className="aux">{progress.current} / {progress.total}</span></header>
+          <div className="btns">
+            <Button disabled={busy} onClick={() => onChoose({ type: "skip" })}>先跳过</Button>
+          </div>
+          <form onSubmit={(event) => { event.preventDefault(); onChoose({ type: "text", text }); }}>
+            <div className="v2-field">
+              <input aria-label={prompt} value={text} disabled={busy} placeholder="写下具体名称" onChange={(event) => onText(event.target.value)} />
+              <Button type="submit" variant="primary" disabled={busy || !text.trim()}>好</Button>
+            </div>
+          </form>
+          {error && <p role="alert">{error}</p>}
+        </Card>
+      </div>
+    );
+  }
   const question = QUESTIONS[state.step];
   return (
     <div data-v2-current>

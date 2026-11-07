@@ -82,7 +82,8 @@ def _card(session, outline):
         "days": len(days), "attempts": len(attempts),
         "first_score": reports[0].score if reports else None,
         "last_score": reports[-1].score if reports else None,
-        "hardest_unit": min(rates, key=rates.get) if rates else None,
+        # 有作答的单元全部答对时，不标“最难的单元”。
+        "hardest_unit": None if not rates or all(rate == 1 for rate in rates.values()) else min(rates, key=rates.get),
         "label": "模拟" if mock else "",
     }
     eligible = (card["last_score"] is not None and card["last_score"] >= PASS_SCORE

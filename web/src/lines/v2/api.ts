@@ -67,3 +67,95 @@ export async function undoOutline(id: string): Promise<{ ok: true } | Fail> {
   if (result.source !== "api" || result.envelope.ok === false) return { ok: false, message: "今天没能撤销，可以稍后再试。" };
   return { ok: true };
 }
+
+export type StageView = { no: number; title: string; unit_nos: number[] };
+export type AssessmentDue = { due: boolean; stage: StageView | null; reason: "stage_done" | "seven_days" | null; open_id: string | null };
+export type QuizQuestion = { id: string; stem: string; options: { id: string; text: string }[] };
+export type Quiz = { id: string; stage: StageView; questions: QuizQuestion[]; label: string; mock: boolean };
+export type AssessmentReport = {
+  score: number;
+  units: { no: number; title: string; correct: number; total: number }[];
+  weak_unit_nos: number[];
+  next_stage: StageView | null;
+  summary: string;
+};
+export type CompletionCard = {
+  days: number;
+  attempts: number;
+  first_score: number | null;
+  last_score: number | null;
+  hardest_unit: string | null;
+  label: string;
+};
+export type CompletionStatus = { suggest: boolean; reason: "all_done" | null; card: CompletionCard | null; done: boolean };
+
+async function request<T>(path: string, init?: RequestInit): Promise<{ ok: true; data: T } | Fail> {
+  try {
+    const response = await fetch(path, {
+      ...init,
+      credentials: "include",
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+    const body = await response.json().catch(() => null) as { ok?: boolean; data?: T; detail?: unknown } | null;
+    if (!response.ok || !body || body.ok === false || body.data === undefined) {
+      const detail = body?.detail;
+      const message = typeof detail === "string" ? detail : detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string" ? detail.message : "这次没完成，请再试一次。";
+      return { ok: false, message };
+    }
+    return { ok: true, data: body.data };
+  } catch {
+    return { ok: false, message: "没有连上，请检查后再试。" };
+  }
+}
+
+export async function getAssessmentDue(): Promise<AssessmentDue | null> {
+  const result = await request<AssessmentDue>("/api/v2/assessment/due");
+  if (!result.ok || typeof result.data.due !== "boolean") return null;
+  return result.data;
+}
+
+export async function startAssessment(): Promise<{ ok: true; quiz: Quiz } | Fail> {
+  const result = await request<Quiz>("/api/v2/assessment/start", { method: "POST" });
+  if (!result.ok) return result;
+  const quiz = result.data;
+  if (!quiz || typeof quiz.id !== "string" || !Array.isArray(quiz.questions) || quiz.questions.length === 0) {
+    return { ok: false, message: "题目还没准备好，请再试一次。" };
+  }
+  return { ok: true, quiz };
+}
+
+export async function submitAssessment(id: string, answers: Record<string, string>): Promise<{ ok: true; report: AssessmentReport } | Fail> {
+  const result = await request<AssessmentReport>(`/api/v2/assessment/${encodeURIComponent(id)}/submit`, {
+    method: "POST",
+    body: JSON.stringify({ answers }),
+  });
+  if (!result.ok) return result;
+  if (typeof result.data.score !== "number" || !Array.isArray(result.data.units) || typeof result.data.summary !== "string") {
+    return { ok: false, message: "成绩还没读到，请再试一次。" };
+  }
+  return { ok: true, report: result.data };
+}
+
+export async function getCompletion(): Promise<CompletionStatus | null> {
+  const result = await request<CompletionStatus>("/api/v2/completion");
+  if (!result.ok || typeof result.data.done !== "boolean" || typeof result.data.suggest !== "boolean") return null;
+  return result.data;
+}
+
+export async function confirmCompletion(reason: "suggested" | "user_said"): Promise<{ ok: true; card: CompletionCard } | Fail> {
+  const result = await request<CompletionCard>("/api/v2/completion/confirm", { method: "POST", body: JSON.stringify({ reason }) });
+  if (!result.ok) return result;
+  if (typeof result.data.days !== "number" || typeof result.data.attempts !== "number") {
+    return { ok: false, message: "完成记录还没读到，请再试一次。" };
+  }
+  return { ok: true, card: result.data };
+}
+
+export async function undoCompletion(): Promise<{ ok: true } | Fail> {
+  const result = await request<{ done?: boolean }>("/api/v2/completion/undo", { method: "POST" });
+  if (!result.ok) return result;
+  return { ok: true };
+}

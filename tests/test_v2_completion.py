@@ -127,6 +127,17 @@ def test_suggestion_and_card_use_latest_submitted_score(api, owner, answers, sco
     assert record_ids(owner[0]) == records
 
 
+def test_all_correct_units_have_no_hardest_unit(api, owner):
+    accept_outline(api, owner)
+    call(api, owner, "POST", "/api/demo/clock", {"days": 7})
+    report = take_assessment(api, owner, "B" * 10)
+    assert report["score"] == 100 and report["weak_unit_nos"] == []
+    card = call(api, owner, "GET", BASE)["card"]
+    assert card["attempts"] == 10
+    assert card["first_score"] == card["last_score"] == 100
+    assert card["hardest_unit"] is None
+
+
 def test_user_confirmation_stops_new_plans_and_undo_expires(api, owner):
     outline = accept_outline(api, owner, minutes=15)
     call(api, owner, "POST", "/api/demo/clock", {"days": 7})

@@ -3,11 +3,13 @@ import {
   CONFIRM_SENTENCE,
   DEFAULT_NOTES,
   MATERIALS_NOW_NOTICE,
+  V2_OPENING,
   acceptanceNotice,
   addDays,
   applyAnswer,
   buildDraft,
   defaultNotes,
+  goalNamePrompt,
   initialGoalState,
   stepProgress,
   validateUnits,
@@ -35,12 +37,13 @@ describe("定目标五问", () => {
   it("考证一路答完是五题，然后才到确认", () => {
     const { state, seen } = walk([
       { type: "quick", label: "考过一个证书" },
+      { type: "skip" },
       { type: "quick", label: "一个月内" },
       { type: "quick", label: "30 分钟" },
       { type: "quick", label: "没有" },
       { type: "quick", label: "刚开始" },
     ]);
-    expect(seen).toEqual(["goal", "deadline", "minutes", "materials", "progress", "confirm"]);
+    expect(seen).toEqual(["goal", "goalName", "deadline", "minutes", "materials", "progress", "confirm"]);
     expect(stepProgress(initialGoalState())).toEqual({ current: 1, total: 5 });
     expect(state.step).toBe("confirm");
     const body = buildDraft(state);
@@ -58,11 +61,12 @@ describe("定目标五问", () => {
   it("技能不问学到哪了", () => {
     const { state, seen } = walk([
       { type: "quick", label: "掌握一项技能" },
+      { type: "skip" },
       { type: "quick", label: "不急" },
       { type: "text", text: "50分钟" },
       { type: "quick", label: "有，晚点交" },
     ]);
-    expect(seen).toEqual(["goal", "deadline", "minutes", "materials", "confirm"]);
+    expect(seen).toEqual(["goal", "goalName", "deadline", "minutes", "materials", "confirm"]);
     expect(stepProgress(state)).toEqual({ current: 4, total: 4 });
     const body = buildDraft(state);
     expect(body).toEqual({
@@ -108,7 +112,9 @@ describe("定目标五问", () => {
   it("三个月内换成今天加 90 天，不急不传 deadline", () => {
     expect(addDays(TODAY, 30)).toBe("2026-12-07");
     expect(addDays(TODAY, 90)).toBe("2027-02-05");
-    const asked = applyAnswer(initialGoalState(), { type: "quick", label: "考过一个证书" }, TODAY).state;
+    const named = applyAnswer(initialGoalState(), { type: "quick", label: "考过一个证书" }, TODAY);
+    expect(named.state.step).toBe("goalName");
+    const asked = applyAnswer(named.state, { type: "skip" }, TODAY).state;
     const later = applyAnswer(asked, { type: "quick", label: "三个月内" }, TODAY);
     expect(later.state.deadline).toBe("2027-02-05");
     expect(later.state.deadlineText).toBe("三个月内（2027-02-05）");
@@ -126,6 +132,8 @@ describe("定目标五问", () => {
 
   it("具体日期原样传入，非法日期停在这一题", () => {
     let state = applyAnswer(initialGoalState(), { type: "quick", label: "学完一门课或一本书" }, TODAY).state;
+    expect(state.step).toBe("goalName");
+    state = applyAnswer(state, { type: "skip" }, TODAY).state;
     const picked = applyAnswer(state, { type: "date", date: "2026-12-20" }, TODAY);
     expect(picked.state.deadline).toBe("2026-12-20");
     state = applyAnswer(initialGoalState(), { type: "text", text: "考 PMP" }, TODAY).state;
@@ -143,6 +151,7 @@ describe("定目标五问", () => {
     for (const label of ["没有", "有，晚点交", "有，现在交"] as const) {
       const { state, seen, notices } = walk([
         { type: "quick", label: "考过一个证书" },
+        { type: "skip" },
         { type: "quick", label: "不急" },
         { type: "quick", label: "15 分钟" },
         { type: "quick", label },
@@ -152,6 +161,58 @@ describe("定目标五问", () => {
       expect(state.materials).toBe(label === "没有" ? "none" : label === "有，晚点交" ? "later" : "now");
       expect(notices).toEqual(label === "有，现在交" ? [MATERIALS_NOW_NOTICE] : []);
     }
+  });
+});
+
+describe("追问具体名称", () => {
+  it("快捷回复才追问，填了用原话，跳过才用快捷回复，直接输入不追问", () => {
+    expect(V2_OPENING).toBe("我是小满。先说说你想学成什么样，我帮你拆成每天的小任务。");
+    const exam = applyAnswer(initialGoalState(), { type: "quick", label: "考过一个证书" }, TODAY);
+    expect(exam.error).toBeUndefined();
+    expect(exam.state.step).toBe("goalName");
+    expect(goalNamePrompt(exam.state.goalType)).toBe("是哪个证书？");
+    expect(stepProgress(exam.state)).toEqual({ current: 1, total: 5 });
+
+    const named = applyAnswer(exam.state, { type: "text", text: "PMP 认证" }, TODAY);
+    expect(named.error).toBeUndefined();
+    expect(named.state.step).toBe("deadline");
+    expect(named.state.goalType).toBe("exam");
+    expect(named.state.goalChosen).toBe(true);
+    expect(named.state.title).toBe("PMP 认证");
+    const draft = buildDraft({
+      ...named.state,
+      step: "confirm",
+      deadlineChosen: true,
+      deadline: "2026-12-01",
+      minutesChosen: true,
+      dailyMinutes: 30,
+      materialsChosen: true,
+      materials: "none",
+      progressChosen: true,
+      progress: "刚开始",
+    });
+    expect(draft?.title).toBe("PMP 认证");
+
+    const skipped = applyAnswer(exam.state, { type: "skip" }, TODAY);
+    expect(skipped.state.step).toBe("deadline");
+    expect(skipped.state.title).toBe("考过一个证书");
+    expect(skipped.state.goalChosen).toBe(true);
+
+    const typed = applyAnswer(initialGoalState(), { type: "text", text: "考过 PMP" }, TODAY);
+    expect(typed.state.step).toBe("deadline");
+    expect(typed.state.title).toBe("考过 PMP");
+    const exact = applyAnswer(initialGoalState(), { type: "text", text: "考过一个证书" }, TODAY);
+    expect(exact.state.step).toBe("deadline");
+    expect(exact.state.title).toBe("考过一个证书");
+
+    const course = applyAnswer(initialGoalState(), { type: "quick", label: "学完一门课或一本书" }, TODAY);
+    expect(goalNamePrompt(course.state.goalType)).toBe("是哪门课或哪本书？");
+    const skill = applyAnswer(initialGoalState(), { type: "quick", label: "掌握一项技能" }, TODAY);
+    expect(goalNamePrompt(skill.state.goalType)).toBe("是哪项技能？");
+    expect(stepProgress(skill.state)).toEqual({ current: 1, total: 4 });
+    const blank = applyAnswer(exam.state, { type: "text", text: "   " }, TODAY);
+    expect(blank.error).toBeTruthy();
+    expect(blank.state.step).toBe("goalName");
   });
 });
 
