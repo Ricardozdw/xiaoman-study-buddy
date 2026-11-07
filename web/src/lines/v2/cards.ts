@@ -27,6 +27,9 @@ export type CompletionStats = {
 };
 
 export type InitialView = "done" | "suggest" | "invite" | "idle";
+export type CardView = InitialView | "loading" | "confirm" | "quiz" | "report";
+
+const STICKY_VIEWS: CardView[] = ["quiz", "report", "confirm", "done"];
 
 export function forbiddenHit(text: string): string | null {
   return FORBIDDEN_WORDS.find((word) => text.includes(word)) ?? null;
@@ -114,4 +117,35 @@ export function viewAfterReport(input: { done: boolean; suggest: boolean }): "do
   if (input.done) return "done";
   if (input.suggest) return "suggest";
   return "idle";
+}
+
+export async function loadCardsForTasks<C, D>(doneCount: number, loaders: {
+  planDate: () => Promise<string | null>;
+  completion: () => Promise<C | null>;
+  due: () => Promise<D | null>;
+}): Promise<{ doneCount: number; today: string; completion: C | null; due: D | null }> {
+  const [date, completion, due] = await Promise.all([loaders.planDate(), loaders.completion(), loaders.due()]);
+  return { doneCount, today: date || "", completion, due };
+}
+
+/** 今天三件的完成数变了之后，决定要不要换掉当前这张卡。答题、报告、确认和完成卡保持不动；当天已点“晚点再考”不再出测验。 */
+export function syncAfterTasks(input: {
+  view: CardView;
+  today: string;
+  laterDay: string | null;
+  done: boolean;
+  suggest: boolean;
+  due: boolean;
+}): { view: CardView } {
+  if (STICKY_VIEWS.includes(input.view)) return { view: input.view };
+  if (input.view === "suggest" && !input.done) return { view: "suggest" };
+  return {
+    view: pickInitialView({
+      done: input.done,
+      suggest: input.suggest,
+      due: input.due,
+      laterDay: input.laterDay,
+      today: input.today,
+    }),
+  };
 }

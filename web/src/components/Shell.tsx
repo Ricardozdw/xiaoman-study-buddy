@@ -401,7 +401,7 @@ export function Shell() {
             {showV2Goal && <GoalFlowV2 today={plan.date} />}
             {source === "api" && !waitForV2 && !showV2Goal && <PlanLine inChat showDemo={DEV} />}
             {source === "api" && v2Enabled === true && !showV2Goal && <AcceptedOutlineBar today={plan.date} />}
-            {v2Enabled && <V2Cards />}
+            {v2Enabled && <V2Cards doneCount={doneCount} />}
             {source !== "api" && bubbles.map((bubble, index) => (
               <Bubble key={bubble.id} role={bubble.role} grouped={index > 0 && bubbles[index - 1].role === bubble.role}>
                 {bubble.text}

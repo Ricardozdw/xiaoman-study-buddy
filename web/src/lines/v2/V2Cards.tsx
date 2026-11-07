@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../components/ui";
 import {
   confirmCompletion,
@@ -14,18 +14,18 @@ import {
   type StageView,
 } from "./api";
 import { AssessmentCard } from "./AssessmentCard";
-import { pickInitialView, readLaterDay, rememberLater, stepIndex, submitGuard, viewAfterReport } from "./cards";
+import { loadCardsForTasks, readLaterDay, rememberLater, stepIndex, submitGuard, syncAfterTasks, viewAfterReport, type CardView } from "./cards";
 import { CompletionCard } from "./CompletionCard";
 import { publishGoalDone } from "./done";
 import { ReportCard } from "./ReportCard";
 
-type View = "loading" | "done" | "suggest" | "confirm" | "invite" | "quiz" | "report" | "idle";
-
-export function V2Cards() {
+export function V2Cards({ doneCount = 0 }: { doneCount?: number }) {
   const [today, setToday] = useState("");
   const [completion, setCompletion] = useState<CompletionStatus | null>(null);
   const [stage, setStage] = useState<StageView | null>(null);
-  const [view, setView] = useState<View>("loading");
+  const [view, setView] = useState<CardView>("loading");
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -40,23 +40,32 @@ export function V2Cards() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [date, status, due] = await Promise.all([getPlanDate(), getCompletion(), getAssessmentDue()]);
+      const loaded = await loadCardsForTasks(doneCount, {
+        planDate: getPlanDate,
+        completion: getCompletion,
+        due: getAssessmentDue,
+      });
       if (cancelled) return;
-      const day = date || "";
-      setToday(day);
-      setCompletion(status);
-      setStage(due?.stage ?? null);
-      publishGoalDone(status?.done === true);
-      setView(pickInitialView({
-        done: status?.done === true,
-        suggest: status?.suggest === true,
-        due: due?.due === true,
+      if (!loaded.completion || !loaded.due) {
+        if (viewRef.current === "loading") setView("idle");
+        return;
+      }
+      const next = syncAfterTasks({
+        view: viewRef.current,
+        today: loaded.today,
         laterDay: readLaterDay(),
-        today: day,
-      }));
+        done: loaded.completion.done === true,
+        suggest: loaded.completion.suggest === true,
+        due: loaded.due.due === true,
+      });
+      setToday(loaded.today);
+      setCompletion(loaded.completion);
+      setStage(loaded.due.stage ?? null);
+      publishGoalDone(loaded.completion.done === true);
+      setView(next.view);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [doneCount]);
 
   async function refreshCompletion() {
     const status = await getCompletion();

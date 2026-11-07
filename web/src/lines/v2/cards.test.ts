@@ -9,12 +9,15 @@ import {
   NEXT_GOAL_HINT,
   completionLines,
   forbiddenHit,
+  loadCardsForTasks,
   pickInitialView,
   reportLines,
   stepIndex,
   submitGuard,
+  syncAfterTasks,
   viewAfterReport,
   weakLine,
+  type CardView,
   type Report,
 } from "./cards";
 
@@ -86,6 +89,74 @@ describe("报告和完成文案", () => {
     const hard = completionLines({ days: 6, attempts: 10, first_score: 60, last_score: 80, hardest_unit: "核心概念 2" });
     expect(hard).toContain("最难的单元：核心概念 2");
     expect(hard).toContain("阶段测验从 60 分到 80 分");
+  });
+});
+
+describe("今天三件勾选后重新检查", () => {
+  function loaders() {
+    const calls: ("due" | "completion")[] = [];
+    return {
+      calls,
+      loaders: {
+        planDate: async () => "2026-11-07",
+        completion: async () => {
+          calls.push("completion");
+          return { suggest: false, done: false, reason: null, card: null };
+        },
+        due: async () => {
+          calls.push("due");
+          const nth = calls.filter((kind) => kind === "due").length;
+          return { due: nth >= 2, stage: { no: 1, title: "第 1 阶段", unit_nos: [1, 2, 3] }, reason: nth >= 2 ? "stage_done" as const : null, open_id: null };
+        },
+      },
+    };
+  }
+
+  it("完成数增加会再请求 due 和 completion，到期后才出测验卡", async () => {
+    const harness = loaders();
+    let view: CardView = "loading";
+    const first = await loadCardsForTasks(1, harness.loaders);
+    view = syncAfterTasks({
+      view, today: first.today, laterDay: null,
+      done: first.completion?.done === true, suggest: first.completion?.suggest === true, due: first.due?.due === true,
+    }).view;
+    expect(view).toBe("idle");
+    expect(first.due?.due).toBe(false);
+    expect(harness.calls.filter((kind) => kind === "due")).toHaveLength(1);
+    expect(harness.calls.filter((kind) => kind === "completion")).toHaveLength(1);
+
+    const second = await loadCardsForTasks(2, harness.loaders);
+    view = syncAfterTasks({
+      view, today: second.today, laterDay: null,
+      done: second.completion?.done === true, suggest: second.completion?.suggest === true, due: second.due?.due === true,
+    }).view;
+    expect(second.doneCount).toBe(2);
+    expect(second.due?.due).toBe(true);
+    expect(view).toBe("invite");
+    expect(harness.calls.filter((kind) => kind === "due")).toHaveLength(2);
+    expect(harness.calls.filter((kind) => kind === "completion")).toHaveLength(2);
+  });
+
+  it("正在答题时不换卡，当天点过晚点再考也不再出", async () => {
+    const harness = loaders();
+    const loaded = await loadCardsForTasks(3, harness.loaders);
+    expect(loaded.due?.due).toBe(false);
+    expect(syncAfterTasks({
+      view: "quiz", today: loaded.today, laterDay: null, done: false, suggest: false, due: true,
+    }).view).toBe("quiz");
+    expect(syncAfterTasks({
+      view: "report", today: loaded.today, laterDay: null, done: false, suggest: true, due: true,
+    }).view).toBe("report");
+    expect(syncAfterTasks({
+      view: "done", today: loaded.today, laterDay: null, done: true, suggest: false, due: true,
+    }).view).toBe("done");
+    expect(syncAfterTasks({
+      view: "idle", today: "2026-11-07", laterDay: "2026-11-07", done: false, suggest: false, due: true,
+    }).view).toBe("idle");
+    expect(syncAfterTasks({
+      view: "idle", today: "2026-11-07", laterDay: null, done: false, suggest: true, due: true,
+    }).view).toBe("suggest");
+    expect(harness.calls).toHaveLength(2);
   });
 });
 
