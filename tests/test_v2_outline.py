@@ -99,7 +99,8 @@ def test_draft_patch_accept_and_undo(api, owner):
     today = api.get("/api/plan/today",headers=headers).json()
     assert today["mock"] is False and today["data"]["needs_setup"] is False
     assert today["data"]["tasks"][0]["title"].startswith("学第 1 讲")
-    assert len(today["data"]["tasks"]) <= 3
+    assert [task["kind"] for task in today["data"]["tasks"]] == ["learn", "practice", "exam"]  # V2.1 学、练、考
+    assert today["data"]["tasks"][2]["kind_label"] == "考试"
     lecture_data = api.get("/api/qa/lectures", headers=headers).json()["data"]
     assert lecture_data["current_lecture_id"] == "lec-1"
     lectures = lecture_data["items"]

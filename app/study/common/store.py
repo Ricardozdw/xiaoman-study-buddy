@@ -47,7 +47,7 @@ PERMISSION_SWITCHES = (
     {"key": "use_study_history", "label": "用学习记录来出建议"},
     {"key": "more_later", "label": "占位", "placeholder": True},
 )
-KIND_LABEL = {"learn": "学新的", "practice": "练一练", "repair": "补一补"}
+KIND_LABEL = {"learn": "学新的", "practice": "练一练", "repair": "补一补", "exam": "考试"}
 
 
 def today_str() -> str:

@@ -191,7 +191,14 @@ def gather_inputs(session, user_id: str, today: date) -> PlanInputs:
         reviews=tuple(reviews),
         learn_per_task=int(pace.get("per_task", 1)) if pace else 1,
         learn_mode=str(pace.get("mode", "")) if pace else "",
+        v2=_v2_goal(goal),
     )
+
+
+def _v2_goal(goal: Goal) -> bool:
+    """V2 开关打开、且这个目标是按 V2 大纲确认的。MVP 用户不受影响。"""
+    from app.study.v2 import enabled
+    return enabled() and bool(_loads(goal.summary_json, {}).get("v2", {}).get("outline_id"))
 
 
 def _active_pace(summary: dict[str, Any], today: date) -> Optional[dict[str, Any]]:
