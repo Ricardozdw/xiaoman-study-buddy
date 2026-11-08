@@ -1,10 +1,11 @@
+import { fetchWithRetry } from "../../api/client";
 import type { PlanCard } from "../plan/types";
 import type { PlanToday } from "../../api/types";
 import type { Frame, Reference } from "./types";
 
 type Envelope<T> = { ok: boolean; mock: boolean; data: T };
 export async function requestJson<T>(path: string, init: RequestInit = {}): Promise<Envelope<T>> {
-  const response = await fetch(path, { ...init, credentials: "include", headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers } });
+  const response = await fetchWithRetry(path, { ...init, credentials: "include", headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers } });
   if (!response.ok) throw new Error(`请求失败（${response.status}），请重试。`);
   const result = await response.json() as Envelope<T>;
   if (!result.ok) throw new Error("操作未成功，请重试。");
@@ -74,7 +75,7 @@ export async function loadSource(reference: Reference, signal?: AbortSignal): Pr
 
 /** All mounted QA consumers share one non-abortable session request.
  * Aborting a StrictMode mount must never trigger a second user-creating POST. */
-export function createSessionInitializer(request: typeof fetch = (...args) => fetch(...args)): () => Promise<void> {
+export function createSessionInitializer(request: typeof fetch = (input, init) => fetchWithRetry(String(input), init || {})): () => Promise<void> {
   let initialization: Promise<void> | null = null;
   return () => {
     if (!initialization) initialization = request("/api/session", { method: "POST", credentials: "include" })

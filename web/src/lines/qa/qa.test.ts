@@ -170,7 +170,9 @@ it("keeps lake-blue Shell navigation while using QA current lecture selection",a
   expect(html).not.toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
   // 学习文档 / 学习路径 / 错题本 / 交课件 收进右上角“更多”；首屏是“月/日 + 一句话状态”。
   expect(html).toContain('aria-label="更多"');expect(html).toContain('aria-label="设置"');
-  expect(html).toContain('<b>11</b>/04');expect(html).toContain('今天还有 3 件事');
+  // 还没拿到真实安排时：显示“正在准备”和今天的真实日期，不把内置样例（“今天还有 3 件事”）当成用户的安排。
+  const [, mm, dd] = /^\d{4}-(\d{2})-(\d{2})$/.exec(new Date().toLocaleDateString('sv-SE'))!;
+  expect(html).toContain(`<b>${mm}</b>/${dd}`);expect(html).toContain('正在准备今天的安排');expect(html).not.toContain('今天还有 3 件事');
   // 我的资料为空时只放一句说明，不留一个空的白底框。
   expect(html).toContain('我的资料');expect(html).not.toContain('class="list-group"');
   expect(html).not.toContain('已连接');expect(html).not.toContain('占位');expect(html).not.toContain('今天的三件在左边');
