@@ -89,6 +89,31 @@ def prefill(text, user_id):
     return found
 
 
+# 与 v2.service 定档一致：≤20 轻松（约 15 分钟）/ ≤40 正常（约 30）/ 其余 冲刺（约 50）。
+TIERS = [("轻松", 15), ("正常", 30), ("冲刺", 50)]
+
+
+def tier_for(minutes):
+    return TIERS[0] if minutes <= 20 else TIERS[1] if minutes <= 40 else TIERS[2]
+
+
+def minutes_note(minutes):
+    """用户说的分钟数不正好是某一档时，说清楚按哪一档排、怎么改；正好是一档就不多说。"""
+    if not minutes:
+        return ""
+    label, tier = tier_for(minutes)
+    if minutes == tier:
+        return ""
+    head = f"每天 {minutes} 分钟——我先按「{label}」排，每天约 {tier} 分钟"
+    index = [name for name, _ in TIERS].index(label)
+    if minutes > tier and index + 1 < len(TIERS):
+        up, up_min = TIERS[index + 1]
+        return f"{head}；想多学点，可以在「今天」里改成「{up}」（约 {up_min} 分钟）。"
+    if minutes < tier:
+        return f"{head}；时间不够的那天，做完一部分也算。"
+    return f"{head}，这是最多的一档。"
+
+
 def _ack(found):
     parts = []
     if found.get("deadline_text"):
@@ -97,7 +122,9 @@ def _ack(found):
         parts.append(f"每天 {found['daily_minutes']} 分钟")
     if found.get("progress"):
         parts.append(f"进度：{found['progress']}")
-    return f"好，记下了：{'，'.join(parts)}。" if parts else ""
+    text = f"好，记下了：{'，'.join(parts)}。" if parts else ""
+    note = minutes_note(found.get("daily_minutes"))
+    return f"{text}\n{note}" if text and note else text
 
 
 def start(user_id, goal_type, title, message=""):
@@ -246,6 +273,7 @@ def advance(user_id, answer):
 
     没听懂时返回同一个问题重问；全部答完时生成大纲并清空进行中状态。
     """
+    ack = ""  # 答了每天时间、且不正好是某一档时，下一问前面先说明按哪档排
     with SessionLocal() as session:
         goal, p = _read(session, user_id)
         if goal is None or p is None:
@@ -261,6 +289,7 @@ def advance(user_id, answer):
             if m is None:
                 return _question("minutes", retry=True), None
             p["daily_minutes"] = m
+            ack = minutes_note(m)
         elif step == "materials":
             m = _parse_materials(answer)
             if m is None:
@@ -287,4 +316,4 @@ def advance(user_id, answer):
                 g2.summary_json = json.dumps(d2, ensure_ascii=False)
                 s2.commit()
             return None, outline
-        return _question(p["step"]), None
+        return _question(p["step"], ack=ack), None

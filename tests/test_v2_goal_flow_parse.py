@@ -58,3 +58,28 @@ def test_retry_question_explains_how_to_answer():
     q = g._question("minutes", retry=True)
     assert "半小时" in q["question"] and q["options"] == g.QUESTIONS["minutes"]["options"]
     assert g.QUESTIONS["minutes"]["question"] == "每天大概有多少时间？"  # 原题不被改写
+
+
+@pytest.mark.parametrize("minutes,expected", [
+    (40, "每天 40 分钟——我先按「正常」排，每天约 30 分钟；想多学点，可以在「今天」里改成「冲刺」（约 50 分钟）。"),
+    (20, "每天 20 分钟——我先按「轻松」排，每天约 15 分钟；想多学点，可以在「今天」里改成「正常」（约 30 分钟）。"),
+    (25, "每天 25 分钟——我先按「正常」排，每天约 30 分钟；时间不够的那天，做完一部分也算。"),
+    (90, "每天 90 分钟——我先按「冲刺」排，每天约 50 分钟，这是最多的一档。"),
+])
+def test_minutes_not_matching_a_tier_are_explained(minutes, expected):
+    assert g.minutes_note(minutes) == expected
+
+
+@pytest.mark.parametrize("minutes", [15, 30, 50, None])
+def test_exact_tiers_need_no_note(minutes):
+    assert g.minutes_note(minutes) == ""
+
+
+def test_tiers_match_outline_service():
+    # 和 v2.service 定档规则一致（≤20 轻松 / ≤40 正常 / 其余冲刺）
+    assert [g.tier_for(m)[0] for m in (5, 20, 21, 40, 41, 300)] == ["轻松", "轻松", "正常", "正常", "冲刺", "冲刺"]
+
+
+def test_opening_ack_includes_tier_note():
+    ack = g._ack(g.prefill("我想一个月后学会 Python，每天 40 分钟", "u"))
+    assert ack.startswith("好，记下了：") and "按「正常」排" in ack
