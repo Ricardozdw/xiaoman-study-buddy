@@ -33,3 +33,7 @@ intents/calibration-report.json
 node_modules/
 web/dist/
 .env.local
+
+# 上线用的连接串与数据库密码（只在本机）
+.env.deploy
+.env.prod
