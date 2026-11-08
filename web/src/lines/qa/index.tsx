@@ -195,7 +195,7 @@ function LegacyHandoff({ handoff, onPlanChange, onNextTask, active = true }: { h
     } catch (error) { setError(error instanceof Error ? error.message : "答案提交失败，请重试。"); }
     finally { setBusy(false); }
   }
-  return <Card as="section" aria-label={handoff.intent === "plan" ? "调整建议" : "练习题"}>
+  return <Card as="section" aria-label={handoff.intent === "plan" ? "调整建议" : "练习题"} className={handoff.intent === "plan" ? undefined : "card-read"}>
     {(handoff.data.label === "模拟" || handoff.data.suggestion?.label === "模拟") && <p className="badge sim">模拟</p>}
     {handoff.intent === "plan" ? <><h3>{handoff.data.suggestion?.title || "调整建议"}</h3><p>{handoff.data.suggestion?.body}</p>
       {status === "executed" ? <><p>已按你的选择调整。</p><Button type="button" disabled={busy} onClick={() => void planAction(true)}>撤销</Button></> : status === "undone" ? <p>已撤销调整。</p> : <div className="btns"><Button type="button" variant="primary" disabled={busy || !handoff.data.id} onClick={() => void planAction(false)}>就这样</Button><Button type="button" disabled={busy} onClick={() => setDismissed(true)}>先不用</Button></div>}

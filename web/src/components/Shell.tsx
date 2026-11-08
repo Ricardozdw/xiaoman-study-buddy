@@ -21,7 +21,7 @@ import { ExamCard } from "../lines/v2/ExamCard";
 import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
 import { MistakeBookCard } from "../lines/v2/MistakeBookCard";
 import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
-import { OutlineRail } from "../lines/v2/OutlineRail";
+import { PathEntry, PathPanel } from "../lines/v2/PathPanel";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
 import { subscribeGoalDone } from "../lines/v2/done";
 import { AcceptedOutlineBar } from "../lines/v2/GoalFlowV2";
@@ -31,7 +31,7 @@ import { LectureCard } from "../lines/v2/LectureCard";
 import { Badge, Bubble, Button, Card, Icon, IconButton, TaskArt } from "./ui";
 
 type FontSize = "sm" | "md" | "lg";
-type Tab = "note" | "page" | "board";
+type Tab = "note" | "page" | "board" | "path";
 type Notice = { id: string; role: "user" | "xiaoman"; text: string };
 
 const INTENSITY: { id: Intensity; label: string }[] = [
@@ -452,7 +452,7 @@ export function Shell() {
               </Button>
             </div>
           )}
-          {outline && !goalDone && <OutlineRail outline={outline} currentNo={currentUnitNo(plan.tasks)} onReview={(no) => { setReviewLecture(no); setRail(false); }} />}
+          {outline && !goalDone && <PathEntry outline={outline} onOpen={() => { setTab("path"); setRail(false); }} />}
           <section className="rail-section">
             <h2>我的资料</h2>
             {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
@@ -655,9 +655,9 @@ export function Shell() {
           <p className="disclaimer">小满整理的内容可能有误，重要内容请对照原文</p>
         </main>
         {tab && (
-          <aside className="workbench">
+          <aside className={tab === "path" ? "workbench path-wide" : "workbench"}>
             <header>
-              <h2>{tab === "note" ? "学习文档" : tab === "page" ? "原文" : "看板"}</h2>
+              <h2>{tab === "note" ? "学习文档" : tab === "page" ? "原文" : tab === "path" ? "学习路径" : "看板"}</h2>
               {tab === "page" && workspace.note && !sourceReference && <Button onClick={() => setTab("note")}>返回笔记</Button>}
               <Button onClick={() => setTab(null)} aria-label="关闭工作台">
                 关闭
@@ -685,6 +685,15 @@ export function Shell() {
                   : !workspace.originalText && pageLoading ? <p role="status">正在读取当前讲原文……</p>
                     : <OriginalView text={workspace.originalText || pageText || "这一讲还没有可用正文，请先交一份 PDF。"} citation={workspace.citation} />)}
             {tab === "board" && <DashboardPanel onUpdate={setBoard} />}
+            {tab === "path" && (outline
+              ? <PathPanel outline={outline} currentNo={currentUnitNo(plan.tasks)}
+                onReview={(no) => { setReviewLecture(no); setTab(null); }}
+                onContinue={() => {
+                  setTab(null);
+                  const learn = plan.tasks.find((task) => task.kind === "learn" && task.status !== "done" && canStart(task));
+                  if (learn) startTask(learn); else scrollToBottom();
+                }} />
+              : <p className="aux">还没有学习路径，先定个目标吧。</p>)}
             {DEV && <section className="lines">
               <h3>五条线的位置</h3>
               <PracticeLine />

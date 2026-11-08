@@ -548,3 +548,47 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .btn.option.picked { background: #e6f0f4; border-color: #9cc3d3; color: #24495a; }
 .btn.option.picked .option-key { background: var(--xm-primary); color: #fff; }
 .exam-card .btns { justify-content: flex-start; }
+
+/* ===== 阅读卡加宽：讲解 / 练习 / 考试 / 错题本 / 完成卡 / 大纲，桌面最宽 720px（每行约 40–45 字）；短提示卡仍 470px ===== */
+.card.card-read { width: 100%; max-width: min(720px, 100%); }
+.card-read .lecture-section { margin-top: 20px; }
+.card-read .lecture-section > p { font-size: calc(var(--fs) + 1px); line-height: 1.9; }
+.card-read .lecture-head h3 { font-size: 21px; }
+@media (max-width: 850px) {
+  .card.card-read { width: 100%; max-width: 96%; }
+  .card-read .lecture-section > p { font-size: var(--fs); line-height: 1.85; }
+  .card-read .lecture-head h3 { font-size: 19px; }
+}
+
+/* ===== 学习路径：左栏一行入口 + 右侧（手机全屏）路径图 ===== */
+.path-entry { width: 100%; display: grid; gap: 6px; padding: 12px 12px 12px 14px; border: 1px solid #e1e7ee; border-radius: var(--xm-radius-task); background: #fff; text-align: left; }
+.path-entry:hover { border-color: #c2dbe6; }
+.path-entry-top { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 550; color: var(--xm-ink); }
+.path-entry-top .icon { width: 14px; height: 14px; color: #8a9aa5; }
+.path-entry .aux { margin: 0; }
+.path-meter { height: 6px; border-radius: 3px; background: #e7edf1; overflow: hidden; }
+.path-meter > span { display: block; height: 100%; background: var(--xm-primary); border-radius: 3px; }
+.shell:has(.workbench.path-wide) { grid-template-columns: 304px minmax(0, 1fr) minmax(360px, 480px); }
+.path-map { list-style: none; margin: 8px 0 0; padding: 0; }
+.path-map > li { position: relative; display: grid; grid-template-columns: 40px 1fr; column-gap: 12px; padding-bottom: 18px; }
+.path-map > li::before { content: ""; position: absolute; left: 19px; top: 40px; bottom: 0; width: 2px; background: #e1e8ed; }
+.path-map > li:last-child::before { display: none; }
+.path-map > li.done::before { background: #9cc3d3; }
+.path-dot { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; background: #eef2f5; color: #7b8c97; border: 2px solid #dfe6eb; }
+.path-map > li.done .path-dot { background: var(--xm-primary); border-color: var(--xm-primary); color: #fff; }
+.path-map > li.today .path-dot { background: #fff; border-color: var(--xm-primary); color: var(--xm-primary); box-shadow: 0 0 0 5px #d9eaf180; }
+.path-map > li.gate .path-dot { background: #fff7e6; border-color: #f0d79c; color: #b98a1f; }
+.path-map > li.gate.done .path-dot { background: #f5c85a; border-color: #f5c85a; color: #fff; }
+.path-body { min-width: 0; padding-top: 8px; }
+.path-title { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font-size: 15px; line-height: 1.5; color: var(--xm-ink); }
+.path-title strong { font-weight: 550; }
+.path-map > li.upcoming .path-title { color: #6b7a85; }
+.path-tag { flex-shrink: 0; margin-left: auto; font-size: 12px; color: var(--t2); }
+.path-map > li.today .path-tag { color: var(--xm-primary); font-weight: 600; }
+.path-points { margin: 6px 0 0; padding-left: 1.1em; font-size: 14px; line-height: 1.75; color: #52626d; }
+.path-body .btns { justify-content: flex-start; margin-top: 10px; }
+.path-gate-text { padding-top: 10px; font-size: 14px; color: #6b5a2d; }
+/* 中等宽度：路径面板收窄，别把对话挤得太窄 */
+@media (max-width: 1240px) and (min-width: 851px) {
+  .shell:has(.workbench.path-wide) { grid-template-columns: 278px minmax(0, 1fr) minmax(300px, 340px); }
+}

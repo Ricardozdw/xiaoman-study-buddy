@@ -72,7 +72,7 @@ export function ExamCard({ onDone }: { onDone: () => void }) {
   if (stageReport) return <ReportCard report={stageReport} label={quiz?.label || ""} onOk={onDone} />;
   if (daily) {
     return (
-      <Card aria-label="考试成绩" data-v2-card="exam-report">
+      <Card aria-label="考试成绩" data-v2-card="exam-report" className="card-read">
         <header>
           <h3>{quiz?.stage.title || "今天的考试"}</h3>
           {quiz?.label && <Badge sim={quiz.label === "模拟"}>{quiz.label}</Badge>}
@@ -85,7 +85,7 @@ export function ExamCard({ onDone }: { onDone: () => void }) {
   }
   if (!quiz) {
     return (
-      <Card aria-label="今天的考试">
+      <Card aria-label="今天的考试" className="card-read">
         <h3>今天的考试</h3>
         {busy && <p role="status">小满正在出题，大概要十几秒…</p>}
         {error && <p role="alert">{error}</p>}

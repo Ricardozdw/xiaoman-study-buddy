@@ -15,7 +15,7 @@ export function MistakeBookCard({ onClose, onChanged }: { onClose: () => void; o
   useEffect(() => { void load(); }, []);
 
   return (
-    <Card as="section" aria-label="错题本" data-v2-card="mistakes">
+    <Card as="section" aria-label="错题本" data-v2-card="mistakes" className="card-read">
       <header>
         <h3>错题本</h3>
         {book && <span className="aux">还有 {book.count} 题没做对</span>}

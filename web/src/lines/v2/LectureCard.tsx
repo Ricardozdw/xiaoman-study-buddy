@@ -46,7 +46,7 @@ export function LectureCard({ unitNo, onDone, doneLabel = "学完了，去练一
   const tag = lecture?.label && lecture.label !== "AI 整理，可以改" ? lecture.label : "";
 
   return (
-    <Card aria-label={`第 ${unitNo} 讲`} className="lecture-card">
+    <Card aria-label={`第 ${unitNo} 讲`} className="lecture-card card-read">
       <header className="lecture-head">
         <span className="aux">第 {unitNo} 讲{tag ? ` · ${tag}` : ""}</span>
         <h3>{lecture?.title ?? "小满正在准备这一讲…"}</h3>

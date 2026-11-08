@@ -50,7 +50,7 @@ export function AssessmentCard(props: InviteProps | QuizProps) {
   const last = props.index >= props.quiz.questions.length - 1;
   if (!question) return null;
   return (
-    <Card aria-label="阶段测验" data-v2-card="assessment" className="exam-card">
+    <Card aria-label="阶段测验" data-v2-card="assessment" className="exam-card card-read">
       <header className="lecture-head">
         <span className="aux">
           {props.quiz.stage?.title || "阶段测验"} · {GENERIC_QUESTION_BADGE}

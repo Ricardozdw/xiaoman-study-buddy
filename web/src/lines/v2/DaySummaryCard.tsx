@@ -18,7 +18,7 @@ export function DaySummaryCard({ refreshKey, next, busy, onNext }: {
   }, [refreshKey]);
 
   return (
-    <Card as="section" aria-label="今天完成" data-v2-card="day-summary">
+    <Card as="section" aria-label="今天完成" data-v2-card="day-summary" className="card-read">
       <div className="v2-celebrate">
         <span className="v2-celebrate-avatar"><Avatar mood="wave" size={56} /></span>
         <div>
