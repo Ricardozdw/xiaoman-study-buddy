@@ -22,6 +22,7 @@ import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
 import { MistakeBookCard } from "../lines/v2/MistakeBookCard";
 import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
 import { PathEntry, PathPanel } from "../lines/v2/PathPanel";
+import { attentionItems, headline, type AttnItem, type AttnTask } from "../lines/v2/attention";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
 import { subscribeGoalDone } from "../lines/v2/done";
 import { AcceptedOutlineBar } from "../lines/v2/GoalFlowV2";
@@ -112,6 +113,7 @@ export function Shell() {
   const [resumeQuiz, setResumeQuiz] = useState<Handoff["data"] | null>(null);
   const [totalDays, setTotalDays] = useState(0);
   const [settings, setSettings] = useState(false);
+  const [tools, setTools] = useState(false);
   const activityRef = useRef<HTMLDivElement>(null);
   // 开始一件新的事（讲解 / 考试 / 错题本）时，把它滚到眼前。
   useEffect(() => {
@@ -374,6 +376,23 @@ export function Shell() {
     {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} hideDoneCard={v2Enabled === true} />}
     {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
   </>;
+  const [, monthNum = "", dayNum = ""] = /^\d{4}-(\d{2})-(\d{2})$/.exec(plan.date) || [];
+  const attnInput = {
+    needsGoal: needsGoal || (source === "api" && v2Enabled === true && plan.needs_setup === true),
+    goalDone,
+    tasks: plan.tasks as unknown as AttnTask[],
+    stageReady: outline?.checkpoints?.find((gate) => gate.status === "ready")?.stage_no ?? null,
+    resumeLectureNo: resumeQuiz ? plan.tasks.find((task) => task.kind === "practice" && task.status !== "done")?.ref?.lecture_no ?? null : null,
+    totalDays,
+  };
+  const hero = headline(attnInput);
+  const attention = source === "loading" ? [] : attentionItems(attnInput);
+  function onAttention(item: AttnItem) {
+    if (item.action === "summary" || item.action === "resume") { scrollToBottom(); return; }
+    const task = plan.tasks.find((row) => row.id === item.taskId);
+    if (task && canStart(task)) startTask(task);
+    else if (task) setRail(true);
+  }
   const EXAMPLES = ["两周后考 PMP，每天半小时", "三个月学会 Python 入门", "零基础学吉他，每天 20 分钟"];
 
   return (
@@ -481,7 +500,7 @@ export function Shell() {
             </div>
             <div className="grow" />
             {source === "mock" && <span className="source-label" title="后端没接上，用的是本地假数据">离线演示</span>}
-            <Button className="settings-btn" aria-label="设置" aria-expanded={settings} onClick={() => setSettings((open) => !open)}>Aa</Button>
+            <Button className="settings-btn" aria-label="设置" aria-expanded={settings} onClick={() => { setTools(false); setSettings((open) => !open); }}>Aa</Button>
             {settings && (
               <div className="settings-pop" role="dialog" aria-label="设置">
                 <h3>字号</h3>
@@ -516,20 +535,43 @@ export function Shell() {
                 <Button onClick={() => setSettings(false)}>好</Button>
               </div>
             )}
-            {/* 展开时“学习文档”在第二行；往下滑收起后并入顶栏这一行，不挡对话。 */}
-            <span className="row-break" aria-hidden="true" />
-            <Button className="floating-materials" onClick={() => materials.current?.openNote()} aria-label="打开学习文档">
-              <Icon name="book" />
-              <span>学习文档</span>
-              <Icon name="chevron" />
-            </Button>
+            <IconButton className={mistakeCount ? "tools-btn has-dot" : "tools-btn"} icon="grid" label="更多" aria-expanded={tools} onClick={() => { setSettings(false); setTools((open) => !open); }} />
+            {tools && (
+              <div className="tools-pop" role="menu" aria-label="更多">
+                {outline && !goalDone && <button type="button" role="menuitem" onClick={() => { setTools(false); setTab("path"); }}><Icon name="path" /><span className="grow">学习路径</span><span className="aux">{Math.min(learnedUpTo, outline.units.length)} / {outline.units.length} 讲</span></button>}
+                {outline && !goalDone && mistakeCount !== null && <button type="button" role="menuitem" onClick={() => { setTools(false); setShowMistakes(true); }}><Icon name="pen" /><span className="grow">错题本</span>{mistakeCount ? <span className="tools-count">{mistakeCount}</span> : <span className="aux">暂无</span>}</button>}
+                <button type="button" role="menuitem" aria-label="打开学习文档" onClick={() => { setTools(false); materials.current?.openNote(); }}><Icon name="book" /><span className="grow">学习文档</span></button>
+                <button type="button" role="menuitem" disabled={!materialsReady} onClick={() => { setTools(false); setPinnedUpload(uploadLectureId); materials.current?.chooseFile(); }}><Icon name="file" /><span className="grow">交课件</span><span className="aux">PDF</span></button>
+              </div>
+            )}
           </div>
-          <div className="companion" ref={companionRef}>
-            <Avatar mood="wave" />
-            <h1>小满</h1>
-            <p>在这儿，陪你慢慢学</p>
+          <div className={compact ? "companion" : "companion hero"} ref={companionRef}>
+            {compact ? (
+              <>
+                <Avatar mood="wave" />
+                <h1>小满</h1>
+                <p>{hero.title}</p>
+              </>
+            ) : (
+              <>
+                <p className="hero-date" aria-label={`今天 ${plan.date}`}><b>{monthNum}</b>/{dayNum}</p>
+                <h1 className="hero-title">{hero.title}</h1>
+                <p className="hero-sub"><Avatar mood="wave" size={28} /><span>{hero.sub}</span></p>
+                {attention.length > 0 && (
+                  <div className="attn-list" aria-label="需要你关注">
+                    {attention.map((item) => (
+                      <button key={item.key} type="button" className="attn-card" disabled={!qa.sessionReady} onClick={() => onAttention(item)}>
+                        <TaskArt kind={item.kind} />
+                        <span className="attn-copy"><strong>{item.title}</strong><span>{item.sub}</span></span>
+                        <Icon name="chevron" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
-          {!needsGoal && !goalDone && plan.tasks.length > 0 && (
+          {compact && !needsGoal && !goalDone && plan.tasks.length > 0 && (
             <div className="today-bar" aria-label="今天的进度">
               <button type="button" className="today-bar-info" onClick={() => setRail(true)}>
                 <span className="today-bar-count">今天 {doneCount}/{plan.tasks.length}</span>
@@ -540,7 +582,6 @@ export function Shell() {
             </div>
           )}
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
-            <p className="day">今天 · {plan.date}</p>
             {source === "api" && v2Enabled === true && plan.needs_setup === true && <>
               <Bubble role="xiaoman">我是小满。说说你想学什么、什么时候学完、每天有多少时间，我帮你拆成每天的小任务。</Bubble>
               {qa.messages.length === 0 && (

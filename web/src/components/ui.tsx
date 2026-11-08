@@ -57,7 +57,7 @@ export function Badge({ sim, children }: { sim?: boolean; children: ReactNode })
   return <span className={join("badge", sim && "sim")}>{children}</span>;
 }
 
-export type IconName = "menu" | "check" | "book" | "file" | "chevron" | "down" | "plus" | "up" | "close";
+export type IconName = "menu" | "check" | "book" | "file" | "chevron" | "down" | "plus" | "up" | "close" | "grid" | "path" | "pen";
 
 const PATHS: Record<IconName, string> = {
   menu: "M5 8h14M5 16h14",
@@ -69,6 +69,9 @@ const PATHS: Record<IconName, string> = {
   plus: "M12 5v14M5 12h14",
   up: "M12 19V5m-6 6 6-6 6 6",
   close: "M6 6l12 12M18 6 6 18",
+  grid: "M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z",
+  path: "M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12-10a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM8 17h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6",
+  pen: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
 };
 
 /** 细线图标，颜色跟随文字。 */

@@ -168,7 +168,9 @@ it("keeps lake-blue Shell navigation while using QA current lecture selection",a
   expect(html).toContain('companion');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
   // 只有一份资料时不放讲次选择；字号和授权收进“设置”；不出现开发用语。
   expect(html).not.toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
-  expect(html).toContain('打开学习文档');expect(html).toContain('aria-label="设置"');
+  // 学习文档 / 学习路径 / 错题本 / 交课件 收进右上角“更多”；首屏是“月/日 + 一句话状态”。
+  expect(html).toContain('aria-label="更多"');expect(html).toContain('aria-label="设置"');
+  expect(html).toContain('<b>11</b>/04');expect(html).toContain('今天还有 3 件事');
   expect(html).not.toContain('已连接');expect(html).not.toContain('占位');expect(html).not.toContain('今天的三件在左边');
 });
 
