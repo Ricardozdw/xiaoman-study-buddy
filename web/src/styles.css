@@ -640,44 +640,43 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .tools-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: #e5685c; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
 @media (max-width: 850px) { .tools-pop { width: min(260px, calc(100vw - 32px)); } }
 
-/* ===== 动态背景「湖面晨雾」：跟小满的湖蓝主色走——湖青、薄荷、晨光米白三团雾光缓慢流动。
-   只动 transform / opacity，开销小；系统“减少动态效果”时静止。 */
+/* ===== 动态背景「清晨湖面」：以白为底，几团很浅、很干净的湖水青 / 薄荷 / 天青光晕缓慢流动，
+   右上一点点晨光米色；颜色都在 95% 以上亮度，互相叠加也不会发灰。只动 transform / opacity。 */
 .chat {
-  background: linear-gradient(175deg, #dcecee 0%, #e9f3f1 30%, #f4f7f3 62%, #f8f7f1 100%);
+  background: linear-gradient(180deg, #f1f8fa 0%, #f8fbfb 38%, #ffffff 100%);
   isolation: isolate;
   overflow: hidden;
-  overflow: clip; /* 光斑层比对话区大；clip 让它不能被“滚进视野”带着整页一起滚 */
+  overflow: clip; /* 光晕层比对话区大；clip 让它不会被“滚进视野”带着整页一起滚 */
 }
 .chat::before, .chat::after { content: ""; position: absolute; inset: -30%; z-index: 0; pointer-events: none; will-change: transform, opacity; }
 .chat::before {
   background:
-    radial-gradient(30% 26% at 22% 16%, #a9d4dbcc 0%, #a9d4db00 72%),
-    radial-gradient(28% 24% at 78% 30%, #c4e8d6bb 0%, #c4e8d600 72%),
-    radial-gradient(34% 30% at 46% 82%, #b9dbe8aa 0%, #b9dbe800 72%);
-  animation: xm-lake-a 16s ease-in-out infinite alternate;
+    radial-gradient(28% 24% at 20% 14%, #d5eef5 0%, #d5eef500 70%),
+    radial-gradient(26% 22% at 74% 34%, #dcf3e8 0%, #dcf3e800 70%),
+    radial-gradient(32% 28% at 40% 84%, #e1ecfa 0%, #e1ecfa00 70%);
+  animation: xm-lake-a 14s ease-in-out infinite alternate;
 }
 .chat::after {
   background:
-    radial-gradient(26% 22% at 70% 10%, #f3ead0cc 0%, #f3ead000 72%),
-    radial-gradient(30% 26% at 12% 64%, #cfe9e3bb 0%, #cfe9e300 72%);
-  animation: xm-lake-b 22s ease-in-out infinite alternate;
+    radial-gradient(20% 18% at 84% 8%, #fff1dc 0%, #fff1dc00 70%),
+    radial-gradient(26% 22% at 10% 60%, #d9f1ee 0%, #d9f1ee00 70%);
+  animation: xm-lake-b 19s ease-in-out infinite alternate;
 }
 .chat > * { position: relative; z-index: 1; }
 .chat > .chat-top { position: absolute; z-index: 3; }
 @keyframes xm-lake-a {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  33% { transform: translate3d(11%, 6%, 0) scale(1.14); }
-  66% { transform: translate3d(-7%, 11%, 0) scale(.94); }
-  100% { transform: translate3d(5%, -7%, 0) scale(1.08); }
+  33% { transform: translate3d(14%, 7%, 0) scale(1.16); }
+  66% { transform: translate3d(-9%, 13%, 0) scale(.92); }
+  100% { transform: translate3d(6%, -9%, 0) scale(1.1); }
 }
 @keyframes xm-lake-b {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .55; }
-  50% { transform: translate3d(-12%, 6%, 0) rotate(14deg); opacity: 1; }
-  100% { transform: translate3d(8%, -8%, 0) rotate(-10deg); opacity: .7; }
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .5; }
+  50% { transform: translate3d(-14%, 8%, 0) rotate(16deg); opacity: 1; }
+  100% { transform: translate3d(10%, -10%, 0) rotate(-12deg); opacity: .65; }
 }
 @media (prefers-reduced-motion: reduce) { .chat::before, .chat::after { animation: none; } .attn-card { animation: none; } }
-/* 左栏跟背景同一色系，淡一点 */
-.rail { background: linear-gradient(180deg, #eef5f4 0%, #f4f6f5 100%); }
+.rail { background: #f7fafa; }
 
 /* 压过旧的 .companion h1 / .companion > p（小满名字的样式），否则首屏标题只有 18px */
 .companion.hero .hero-title { font-size: 30px; margin: 6px 0 0; font-weight: 600; line-height: 1.35; }
@@ -685,3 +684,30 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .companion.hero > .hero-sub { margin-top: 8px; font-size: 14px; }
 @media (max-width: 850px) { .companion.hero { padding-top: 52px; } .companion.hero .hero-title { font-size: 25px; } }
 @media (max-height: 850px) and (min-width: 851px) { .companion.hero .hero-title { font-size: 26px; } }
+
+/* ===== 滑动区域：整个对话栏都能滚（滚动条在最右边），首屏跟着内容一起滚走；
+   顶栏是一层浮在上面的毛玻璃条，滚过首屏后显示“小满 · 今天的状态”。输入框固定在底部。 ===== */
+.chat, .chat.compact { padding-top: 0; }
+.chat-top { top: 0; left: 0; right: 0; padding: 19px 26px 10px 23px; transition: background .2s ease, box-shadow .2s ease; }
+.chat.compact .chat-top { background: #ffffffc4; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 1px 0 #e7eef1; }
+.stream { width: 100%; padding: 76px max(48px, calc((100% - 1040px) / 2)) 22px; scrollbar-gutter: stable; }
+.mini-status { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; color: var(--t2); animation: xm-fade-in .2s ease both; }
+.mini-status .avatar { width: 30px; height: 30px; margin: 0; flex-shrink: 0; filter: none; }
+.mini-status strong { font-size: 16px; font-weight: 550; color: var(--xm-ink); }
+.mini-status span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-status span::before { content: "·"; margin-right: 8px; color: #9aa8b2; }
+.hero { padding: 4px 2px 10px; }
+.hero .hero-date { margin: 0; }
+.hero .hero-title { font-size: 30px; margin: 6px 0 0; font-weight: 600; line-height: 1.35; }
+.hero .hero-sub { margin-top: 8px; font-size: 14px; }
+.hero + * { margin-top: 18px; }
+@media (max-width: 1240px) { .stream { padding-left: max(33px, calc((100% - 1040px) / 2)); padding-right: max(33px, calc((100% - 1040px) / 2)); } }
+@media (max-height: 850px) and (min-width: 851px) { .stream { padding-top: 68px; } .hero .hero-title { font-size: 26px; } .hero-date b { font-size: 38px; } }
+@media (max-width: 850px) {
+  .chat, .chat.compact { padding-top: 0; }
+  .chat-top { padding: 12px 14px 8px 12px; }
+  .chat.compact .mini-status { display: none; } /* 手机上顶栏已有“小满”，收起后显示今天进度条 */
+  .chat-top .today-bar { flex-basis: 100%; margin: 8px 0 0; }
+  .stream { width: 100%; padding: 64px 18px 17px; }
+  .hero .hero-title { font-size: 25px; }
+}

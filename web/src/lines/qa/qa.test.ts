@@ -165,7 +165,7 @@ it("renders native plan option labels rather than a fabricated generic choice",(
 it("keeps lake-blue Shell navigation while using QA current lecture selection",async()=>{
   const { Shell }=await import('../../components/Shell');
   const html=renderToStaticMarkup(createElement(Shell));
-  expect(html).toContain('companion');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
+  expect(html).toContain('class="hero"');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
   // 只有一份资料时不放讲次选择；字号和授权收进“设置”；不出现开发用语。
   expect(html).not.toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
   // 学习文档 / 学习路径 / 错题本 / 交课件 收进右上角“更多”；首屏是“月/日 + 一句话状态”。

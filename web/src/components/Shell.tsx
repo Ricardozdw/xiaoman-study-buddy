@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { mockDashboard, mockPlan } from "../api/mocks";
 import type { Dashboard, Intensity, Permissions, PlanToday } from "../api/types";
@@ -121,44 +121,23 @@ export function Shell() {
       // 只滚对话列表本身；不用 scrollIntoView，它会连外层容器一起滚，把顶栏和输入框挤走。
       const stream = streamRef.current, target = activityRef.current;
       if (stream && target) {
-        const top = target.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - 12;
+        // 顶栏是浮在对话上面的一层，停的位置要让开它的高度。
+        const bar = (document.querySelector(".chat-top") as HTMLElement | null)?.offsetHeight ?? 0;
+        const top = target.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - bar - 8;
         stream.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
       }
     }
   }, [activeLecture, activeExam, showMistakes, reviewLecture, extraLecture]);
   const streamRef = useRef<HTMLDivElement>(null);
 
-  const companionRef = useRef<HTMLDivElement>(null);
-  // 收起 / 展开时，头像从原来的位置平滑移到新位置（先记下旧位置，渲染后再补一段动画）。
-  const avatarFrom = useRef<DOMRect | null>(null);
-
-  function changeCompact(next: boolean) {
-    avatarFrom.current = companionRef.current?.querySelector(".avatar")?.getBoundingClientRect() ?? null;
-    setCompact(next);
-  }
-
-  useLayoutEffect(() => {
-    const avatar = companionRef.current?.querySelector<HTMLElement>(".avatar");
-    const from = avatarFrom.current;
-    avatarFrom.current = null;
-    if (!avatar || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const to = avatar.getBoundingClientRect();
-    if (!to.width) return;
-    // 原地淡入，不再从大头像“飞”过去：飞的途中会盖住对话文字。
-    avatar.animate([{ opacity: 0, transform: "scale(.85)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "ease-out" });
-  }, [compact]);
-
+  // 首屏（日期 + 状态 + 关注卡）是对话流的一部分，跟着一起滚；滚过它之后顶部收成一条。
+  const heroRef = useRef<HTMLElement>(null);
   function onStreamScroll() {
     const el = streamRef.current;
     if (!el) return;
-    if (!compact) {
-      // 收起后对话区会变高；只有收起后仍然需要滚动时才收起，否则会在“收起—展开”之间来回跳。
-      const gain = companionRef.current?.offsetHeight ?? 0;
-      const stillScrolls = el.scrollHeight - el.clientHeight - gain > 48;
-      if (el.scrollTop > 24 && stillScrolls) changeCompact(true);
-    } else if (el.scrollTop < 8) {
-      changeCompact(false);
-    }
+    const heroBottom = (heroRef.current?.offsetHeight ?? 0) - 40;
+    const next = el.scrollTop > Math.max(24, heroBottom);
+    if (next !== compact) setCompact(next);
   }
 
   // 有新消息时滚到最底下；小满的回复边生成边变长时，只要用户本来就在底部附近，也跟着滚。
@@ -503,6 +482,8 @@ export function Shell() {
               <IconButton icon="menu" label="打开今天三件" onClick={() => setRail((open) => !open)} />
               <strong>小满</strong>
             </div>
+            {/* 往下滑过首屏后：顶部收成一条，小头像 + 今天的状态 */}
+            {compact && <div className="mini-status"><Avatar mood="wave" size={30} /><strong>小满</strong><span>{hero.title}</span></div>}
             <div className="grow" />
             {source === "mock" && <span className="source-label" title="后端没接上，用的是本地假数据">离线演示</span>}
             <Button className="settings-btn" aria-label="设置" aria-expanded={settings} onClick={() => { setTools(false); setSettings((open) => !open); }}>Aa</Button>
@@ -549,44 +530,34 @@ export function Shell() {
                 <button type="button" role="menuitem" disabled={!materialsReady} onClick={() => { setTools(false); setPinnedUpload(uploadLectureId); materials.current?.chooseFile(); }}><Icon name="file" /><span className="grow">交课件</span><span className="aux">PDF</span></button>
               </div>
             )}
-          </div>
-          <div className={compact ? "companion" : "companion hero"} ref={companionRef}>
-            {compact ? (
-              <>
-                <Avatar mood="wave" />
-                <h1>小满</h1>
-                <p>{hero.title}</p>
-              </>
-            ) : (
-              <>
-                <p className="hero-date" aria-label={`今天 ${plan.date}`}><b>{monthNum}</b>/{dayNum}</p>
-                <h1 className="hero-title">{hero.title}</h1>
-                <p className="hero-sub"><Avatar mood="wave" size={28} /><span>{hero.sub}</span></p>
-                {attention.length > 0 && (
-                  <div className="attn-list" aria-label="需要你关注">
-                    {attention.map((item) => (
-                      <button key={item.key} type="button" className="attn-card" disabled={!qa.sessionReady} onClick={() => onAttention(item)}>
-                        <TaskArt kind={item.kind} />
-                        <span className="attn-copy"><strong>{item.title}</strong><span>{item.sub}</span></span>
-                        <Icon name="chevron" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
+            {compact && !needsGoal && !goalDone && plan.tasks.length > 0 && (
+              <div className="today-bar" aria-label="今天的进度">
+                <button type="button" className="today-bar-info" onClick={() => setRail(true)}>
+                  <span className="today-bar-count">今天 {doneCount}/{plan.tasks.length}</span>
+                  <span className="today-bar-meter" aria-hidden="true"><span style={{ width: `${(doneCount / plan.tasks.length) * 100}%` }} /></span>
+                  <span className="today-bar-next">{nextTask ? `下一件：${nextTask.title}` : "今天的都做完了"}</span>
+                </button>
+                {nextTask && canStart(nextTask) && <Button variant="primary" disabled={!qa.sessionReady} onClick={() => startTask(nextTask)}>{nextTask.id === inProgress || nextTask.id === activeLecture?.taskId ? "继续" : "开始"}</Button>}
+              </div>
             )}
           </div>
-          {compact && !needsGoal && !goalDone && plan.tasks.length > 0 && (
-            <div className="today-bar" aria-label="今天的进度">
-              <button type="button" className="today-bar-info" onClick={() => setRail(true)}>
-                <span className="today-bar-count">今天 {doneCount}/{plan.tasks.length}</span>
-                <span className="today-bar-meter" aria-hidden="true"><span style={{ width: `${(doneCount / plan.tasks.length) * 100}%` }} /></span>
-                <span className="today-bar-next">{nextTask ? `下一件：${nextTask.title}` : "今天的都做完了"}</span>
-              </button>
-              {nextTask && canStart(nextTask) && <Button variant="primary" disabled={!qa.sessionReady} onClick={() => startTask(nextTask)}>{nextTask.id === inProgress || nextTask.id === activeLecture?.taskId ? "继续" : "开始"}</Button>}
-            </div>
-          )}
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
+            <section className="hero" ref={heroRef} aria-label="今天">
+              <p className="hero-date" aria-label={`今天 ${plan.date}`}><b>{monthNum}</b>/{dayNum}</p>
+              <h1 className="hero-title">{hero.title}</h1>
+              <p className="hero-sub"><Avatar mood="wave" size={28} /><span>{hero.sub}</span></p>
+              {attention.length > 0 && (
+                <div className="attn-list" aria-label="需要你关注">
+                  {attention.map((item) => (
+                    <button key={item.key} type="button" className="attn-card" disabled={!qa.sessionReady} onClick={() => onAttention(item)}>
+                      <TaskArt kind={item.kind} />
+                      <span className="attn-copy"><strong>{item.title}</strong><span>{item.sub}</span></span>
+                      <Icon name="chevron" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
             {source === "api" && v2Enabled === true && plan.needs_setup === true && <>
               <Bubble role="xiaoman">我是小满。说说你想学什么、什么时候学完、每天有多少时间，我帮你拆成每天的小任务。</Bubble>
               {qa.messages.length === 0 && (
@@ -660,7 +631,7 @@ export function Shell() {
               <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />
             )}
             {extraLecture !== null && (
-              <LectureCard unitNo={extraLecture} onDone={() => {
+              <LectureCard unitNo={extraLecture} doneLabel="学完了" onDone={() => {
                 void advanceProgress(extraLecture).then(async () => { setOutline(await getCurrentOutline()); setExtraLecture(null); });
               }} />
             )}
