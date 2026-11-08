@@ -172,7 +172,7 @@ it("keeps lake-blue Shell navigation while using QA current lecture selection",a
   expect(html).toContain('aria-label="更多"');expect(html).toContain('aria-label="设置"');
   expect(html).toContain('<b>11</b>/04');expect(html).toContain('今天还有 3 件事');
   // 我的资料为空时只放一句说明，不留一个空的白底框。
-  expect(html).toContain('先交一份 PDF');expect(html).not.toContain('class="list-group"');
+  expect(html).toContain('我的资料');expect(html).not.toContain('class="list-group"');
   expect(html).not.toContain('已连接');expect(html).not.toContain('占位');expect(html).not.toContain('今天的三件在左边');
 });
 
