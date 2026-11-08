@@ -43,8 +43,13 @@ def render():
         for index in sorted(table.indexes, key=lambda i: i.name):
             lines.append(str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect)) + ";")
         lines.extend([
+            # 和其它表一样开启并强制 RLS（守住“每张表都有 RLS”的底线），用显式策略只放行两个运行时角色。
+            f"ALTER TABLE {name} ENABLE ROW LEVEL SECURITY;",
+            f"ALTER TABLE {name} FORCE ROW LEVEL SECURITY;",
             f"REVOKE ALL ON TABLE {name} FROM PUBLIC, anon, authenticated;",
             f"GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {name} TO personal_agent_app, personal_agent_system;",
+            f"DROP POLICY IF EXISTS xiaoman_identity_index ON {name};",
+            f"CREATE POLICY xiaoman_identity_index ON {name} TO personal_agent_app, personal_agent_system USING (true) WITH CHECK (true);",
         ])
     lines.append('GRANT USAGE, SELECT ON SEQUENCE "public"."identity_index_id_seq" TO personal_agent_app, personal_agent_system;')
     lines.append("COMMIT;")
