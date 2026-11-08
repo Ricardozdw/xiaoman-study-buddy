@@ -592,3 +592,12 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 @media (max-width: 1240px) and (min-width: 851px) {
   .shell:has(.workbench.path-wide) { grid-template-columns: 278px minmax(0, 1fr) minmax(300px, 340px); }
 }
+
+/* 讲解 / 考试卡的头部：来源行 · 标题 · 进度条，三行都和正文左对齐。
+   用 .card > header.lecture-head 压过通用的 .card > header（横排 flex），否则标题会被挤到来源标签右边。 */
+.card > header.lecture-head { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 6px; margin: 0 0 4px; }
+.card > header.lecture-head h3 { margin: 0; }
+.head-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 12px; row-gap: 2px; font-size: var(--aux); color: var(--t2); }
+.head-meta .head-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.card > header.lecture-head .quiz-progress { margin: 4px 0 0; }
+.card > header.lecture-head .head-note { margin: 2px 0 0; }

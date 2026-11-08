@@ -48,10 +48,13 @@ export function LectureCard({ unitNo, onDone, doneLabel = "学完了，去练一
   return (
     <Card aria-label={`第 ${unitNo} 讲`} className="lecture-card card-read">
       <header className="lecture-head">
-        <span className="aux">第 {unitNo} 讲{tag ? ` · ${tag}` : ""}</span>
+        <div className="head-meta">
+          <span>第 {unitNo} 讲{tag ? ` · ${tag}` : ""}</span>
+          {total > 0 && !review && <span className="head-count">第 {visible} / {total} 节</span>}
+        </div>
         <h3>{lecture?.title ?? "小满正在准备这一讲…"}</h3>
         {total > 0 && !review && (
-          <div className="quiz-progress" aria-label={`第 ${visible} / ${total} 节`}><span style={{ width: `${(visible / total) * 100}%` }} /></div>
+          <div className="quiz-progress" aria-hidden="true"><span style={{ width: `${(visible / total) * 100}%` }} /></div>
         )}
       </header>
       {busy && <p role="status" className="aux">大概要十几秒，稍等一下。</p>}

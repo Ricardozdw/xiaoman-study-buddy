@@ -52,14 +52,17 @@ export function AssessmentCard(props: InviteProps | QuizProps) {
   return (
     <Card aria-label="阶段测验" data-v2-card="assessment" className="exam-card card-read">
       <header className="lecture-head">
-        <span className="aux">
-          {props.quiz.stage?.title || "阶段测验"} · {GENERIC_QUESTION_BADGE}
-          {props.quiz.label === "模拟" && <> <Badge sim>模拟</Badge></>}
-        </span>
+        <div className="head-meta">
+          <span>
+            {props.quiz.stage?.title || "阶段测验"} · {GENERIC_QUESTION_BADGE}
+            {props.quiz.label === "模拟" && <> <Badge sim>模拟</Badge></>}
+          </span>
+          <span className="head-count">第 {props.index + 1} / {props.quiz.questions.length} 题</span>
+        </div>
+        <h3>{question.stem}</h3>
         <div className="quiz-progress" aria-hidden="true"><span style={{ width: `${(Object.keys(props.answers).filter((id) => props.answers[id]).length / props.quiz.questions.length) * 100}%` }} /></div>
-        <span className="aux">第 {props.index + 1} / {props.quiz.questions.length} 题{props.index === 0 && props.intro ? ` · ${props.intro}` : ""}</span>
+        {props.index === 0 && props.intro && <p className="aux head-note">{props.intro}。</p>}
       </header>
-      <h3>{question.stem}</h3>
       <div className="options">
         {question.options.map((option) => (
           <Button
