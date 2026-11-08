@@ -88,6 +88,26 @@ export function QaAnswer({ answer, onReference, onPlanChange, onQuickReply, onNe
   </div>;
 }
 
+const QUIZ_KEY = "xm-open-quiz";
+const todayKey = () => new Date().toLocaleDateString("sv-SE");
+export function rememberQuiz(quizId: string) {
+  try { localStorage.setItem(QUIZ_KEY, JSON.stringify({ quizId, day: todayKey() })); } catch { /* 存不了就不恢复 */ }
+}
+export function forgetQuiz(quizId?: string) {
+  try {
+    const raw = localStorage.getItem(QUIZ_KEY);
+    if (raw && (!quizId || JSON.parse(raw).quizId === quizId)) localStorage.removeItem(QUIZ_KEY);
+  } catch { /* 忽略 */ }
+}
+export function openQuizId(): string | null {
+  try {
+    const raw = localStorage.getItem(QUIZ_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as { quizId?: string; day?: string };
+    return saved.day === todayKey() && typeof saved.quizId === "string" ? saved.quizId : null;
+  } catch { return null; }
+}
+
 export function QaHandoff({ handoff, onPlanChange, onQuickReply, onNextTask, onGoalAccepted, active = true }: { handoff: Handoff; active?: boolean; onPlanChange?: (plan: PlanToday) => void; onQuickReply?: (text: string) => void; onNextTask?: () => void; onGoalAccepted?: () => void }) {
   if (handoff.intent === "goal") {
     return <GoalOutlineHandoff data={handoff.data} active={active} onQuickReply={onQuickReply} onAccepted={onGoalAccepted} />;
@@ -138,9 +158,18 @@ function LegacyHandoff({ handoff, onPlanChange, onNextTask, active = true }: { h
   const [status, setStatus] = useState(handoff.data.status || "pending");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [questionIndex, setQuestionIndex] = useState(0);
+  // 刷新后接着做：已经答过的题跳过，从第一道没答的开始。
+  const answered = handoff.data.results || {};
+  const firstOpen = Math.max(0, (handoff.data.questions || []).findIndex((item) => !answered[item.id]));
+  const [questionIndex, setQuestionIndex] = useState(firstOpen);
   const [grade, setGrade] = useState<{ correct: boolean; analysis: string; label?: string; answer?: string; your_answer?: string } | null>(null);
-  const [rightCount, setRightCount] = useState(0);
+  const [rightCount, setRightCount] = useState(() => Object.values(answered).filter((item) => item.correct).length);
+  // 记住今天正在做的这组题，刷新页面后能接着做；做完就忘掉。
+  useEffect(() => {
+    if (handoff.intent === "quiz" && handoff.data.quiz_id && active) rememberQuiz(handoff.data.quiz_id);
+  }, [handoff.intent, handoff.data.quiz_id, active]);
+  const lastDone = Boolean(grade) && questionIndex + 1 >= (handoff.data.questions || []).length;
+  useEffect(() => { if (lastDone) forgetQuiz(handoff.data.quiz_id); }, [lastDone, handoff.data.quiz_id]);
   const [dismissed, setDismissed] = useState(false);
   if (dismissed || (!active && status !== "executed" && status !== "undone")) return <p className="aux">已收起这张卡。未接受的建议不会改变安排。</p>;
   async function planAction(undo: boolean) {
@@ -158,7 +187,7 @@ function LegacyHandoff({ handoff, onPlanChange, onNextTask, active = true }: { h
     if (!question || busy || grade) return;
     setBusy(true); setError("");
     try {
-      const response = await requestJson<{ correct: boolean; analysis: string; label?: string; answer?: string; your_answer?: string }>("/api/attempts", { method: "POST", body: JSON.stringify({ question_id: question.id, answer, seconds: 0, confidence: "" }) });
+      const response = await requestJson<{ correct: boolean; analysis: string; label?: string; answer?: string; your_answer?: string }>("/api/attempts", { method: "POST", body: JSON.stringify({ question_id: question.id, answer, quiz_id: handoff.data.quiz_id || "", seconds: 0, confidence: "" }) });
       setGrade({ ...response.data, your_answer: response.data.your_answer || answer });
       if (response.data.correct) setRightCount(n => n + 1);
       // 做了就算完成：计划线会自动勾掉「练一练」，这里刷新左栏。

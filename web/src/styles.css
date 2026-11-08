@@ -534,3 +534,17 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .settings-pop { right: -2px; width: min(280px, calc(100vw - 32px)); }
   .chat.compact .today-bar { margin-top: 0; }
 }
+
+/* ===== V2.3 P2 ===== */
+.task-go.live { background: #e3eff4; color: var(--xm-primary); }
+.day-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
+.day-stats > div { display: grid; justify-items: center; gap: 2px; padding: 10px 4px; border-radius: 12px; background: #f3f7f9; animation: xm-pop .35s ease both; }
+.day-stats > div:nth-child(2) { animation-delay: .06s; } .day-stats > div:nth-child(3) { animation-delay: .12s; } .day-stats > div:nth-child(4) { animation-delay: .18s; }
+.day-stats strong { font-size: 20px; color: var(--xm-primary); font-variant-numeric: tabular-nums; }
+.day-stats span { font-size: 12px; color: var(--t2); }
+@keyframes xm-pop { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 420px) { .day-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .day-stats > div { animation: none; } }
+.btn.option.picked { background: #e6f0f4; border-color: #9cc3d3; color: #24495a; }
+.btn.option.picked .option-key { background: var(--xm-primary); color: #fff; }
+.exam-card .btns { justify-content: flex-start; }

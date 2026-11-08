@@ -27,7 +27,18 @@ export function DaySummaryCard({ refreshKey, next, busy, onNext }: {
         </div>
       </div>
       {summary ? (
-        <ul className="v2-lines">{summary.lines.map((line) => <li key={line}>{line}</li>)}</ul>
+        <>
+          <div className="day-stats" aria-label="今天的成绩">
+            <div><strong>{summary.lectures?.length ?? 0}</strong><span>学了几讲</span></div>
+            <div><strong>{summary.practice?.total ? `${summary.practice.correct}/${summary.practice.total}` : "—"}</strong><span>练习答对</span></div>
+            <div><strong>{summary.exam ? `${summary.exam.score}` : "—"}</strong><span>考试分数</span></div>
+            <div><strong>{summary.total_days}</strong><span>累计天数</span></div>
+          </div>
+          {/* 数字已经在上面四格里，下面只写今天学了哪几讲，不再把同样的数字念一遍。 */}
+          {summary.lectures?.length
+            ? <p className="aux">今天学了：{summary.lectures.map((item) => `第 ${item.no} 讲「${item.title}」`).join("、")}</p>
+            : <ul className="v2-lines">{summary.lines.map((line) => <li key={line}>{line}</li>)}</ul>}
+        </>
       ) : (
         <p role="status" className="aux">正在整理今天的记录…</p>
       )}

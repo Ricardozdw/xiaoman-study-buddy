@@ -12,9 +12,9 @@ import type { DemoClock, GoalQuestion, Opening, PlanCard, PlanOption, PlanTodayE
 // 演示开关只在开发模式（showDemo）显示。
 // 改到左栏的操作（生效、撤销、跳日期）做完刷新整页，因为左栏归共用的 Shell 管。
 
-type Props = { inChat?: boolean; showDemo?: boolean };
+type Props = { hideDoneCard?: boolean; inChat?: boolean; showDemo?: boolean };
 
-export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
+export function PlanLine({ inChat = false, showDemo = true, hideDoneCard = false }: Props = {}) {
   const [plan, setPlan] = useState<PlanTodayExt | null>(null);
   const [opening, setOpening] = useState<Opening | null>(null);
   const [questions, setQuestions] = useState<GoalQuestion[]>([]);
@@ -130,7 +130,7 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
         </div>
       )}
 
-      {plan.done_card && !card && (
+      {plan.done_card && !card && !hideDoneCard && (
         <article className="card" aria-label="收工">
           <header>
             <h3>{plan.done_card.title}</h3>

@@ -4,7 +4,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { consumeSse, requestJson, loadSource, createSessionInitializer } from "./transport";
 import { applyFrame, emptyAnswer, nextCurrentLectureId } from "./state";
-import { QaAnswer, QaSourceText, LecturePicker, CitedText } from "./index";
+import { QaAnswer, QaHandoff, QaSourceText, LecturePicker, CitedText } from "./index";
 function response(text: string, byteSize = 1) {
   const bytes = new TextEncoder().encode(text);
   return new Response(new ReadableStream({ start(c) {
@@ -234,4 +234,18 @@ it("real answers keep the AI tag and feedback buttons",()=>{
   const answer={...emptyAnswer("q"),text:"关键路径是最长的那条",messageId:"m2",intent:"qa",status:"done" as const};
   const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
   expect(html).toContain("AI 整理");expect(html).toContain("赞同回答");
+});
+
+it("remembers today's open quiz and resumes at the first unanswered question",async()=>{
+  const store=new Map<string,string>();
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>store.get(k)??null,setItem:(k:string,v:string)=>{store.set(k,v);},removeItem:(k:string)=>{store.delete(k);}});
+  const { rememberQuiz, openQuizId, forgetQuiz }=await import('./index');
+  rememberQuiz('quiz-1');expect(openQuizId()).toBe('quiz-1');
+  forgetQuiz('other');expect(openQuizId()).toBe('quiz-1');
+  forgetQuiz('quiz-1');expect(openQuizId()).toBeNull();
+  store.set('xm-open-quiz',JSON.stringify({quizId:'old',day:'2000-01-01'}));expect(openQuizId()).toBeNull();
+  const data={quiz_id:'quiz-2',questions:[{id:'q1',kind:'single',stem:'第一题',options:['甲']},{id:'q2',kind:'single',stem:'第二题',options:['乙']}],results:{q1:{correct:true}}};
+  const html=renderToStaticMarkup(createElement(QaHandoff,{handoff:{intent:'quiz',data}}));
+  expect(html).toContain('第二题');expect(html).not.toContain('第一题');expect(html).toContain('第 2 / 2 题');
+  vi.unstubAllGlobals();
 });

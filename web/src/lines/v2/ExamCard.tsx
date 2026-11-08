@@ -95,13 +95,10 @@ export function ExamCard({ onDone }: { onDone: () => void }) {
   }
   return (
     <>
-      {kind === "daily" && index === 0 && (
-        <p className="aux">{mistakes ? `前 ${mistakes} 题是之前做错的，再试一次。` : "都是今天这一讲的题。"}</p>
-      )}
-      {kind === "stage" && index === 0 && <p className="aux">学完一个阶段了，今天的考试就是阶段测验。</p>}
       <AssessmentCard
         mode="quiz"
         quiz={quiz}
+        intro={kind === "stage" ? "学完一个阶段了，今天的考试就是阶段测验" : mistakes ? `前 ${mistakes} 题是之前做错的，再试一次` : "都是今天这一讲的题"}
         index={index}
         answers={answers}
         busy={busy}

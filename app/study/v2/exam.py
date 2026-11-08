@@ -77,7 +77,9 @@ def start(user_id):
         rest = count - len(mistakes)
         if rest > 0:
             try:
-                quiz = practice_service.create_quiz(user_id, QuizBody(lecture_id=ref["lecture_id"], count=rest, difficulty="easy"))
+                # 考试用中等难度：和“练一练”（easy）分开出题，否则题数相同时会原样复用练习题，
+                # 既等于考原题，也会让当日总结把练习作答算成考试题。
+                quiz = practice_service.create_quiz(user_id, QuizBody(lecture_id=ref["lecture_id"], count=rest, difficulty="medium"))
             except PracticeError as exc:
                 raise HTTPException(422, str(exc)) from None
             for question in quiz["questions"]:

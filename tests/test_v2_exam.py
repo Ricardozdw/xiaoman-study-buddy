@@ -193,3 +193,13 @@ def test_mistake_book_groups_and_drops_after_correct_redo(api, owner, auth):
     after = get(api, owner, "/api/v2/mistakes")
     assert after["count"] == data["count"] - 1
     assert item["question_id"] not in {i["question_id"] for g in after["groups"] for i in g["items"]}
+
+
+def test_exam_does_not_reuse_todays_practice_questions(api, owner):
+    # 练一练和考试题数相同时，考试不能原样复用练习题（否则等于考原题，当日总结也会把练习算成考试）。
+    accept(api, owner)
+    practice = tasks(api, owner)["practice"]
+    quiz = post(api, owner, "/api/quizzes", {"lecture_id": practice["ref"]["lecture_id"],
+                                             "count": scheduler.EXAM_COUNT["normal"]})
+    exam = post(api, owner, f"{BASE}/start")
+    assert not {q["id"] for q in quiz["questions"]} & {q["id"] for q in exam["questions"]}

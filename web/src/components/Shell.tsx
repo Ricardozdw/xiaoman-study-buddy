@@ -11,11 +11,12 @@ import { NoteView, OriginalView } from "../lines/materials/NoteView";
 import { useMaterialsWorkspace } from "../lines/materials/useMaterialsWorkspace";
 import { PlanLine } from "../lines/plan/Placeholder";
 import { PracticeLine } from "../lines/practice/Placeholder";
-import { LecturePicker, QaAnswer, QaSourcePanel, useQaConversation, type Reference } from "../lines/qa";
+import { LecturePicker, QaAnswer, QaHandoff, QaSourcePanel, openQuizId, useQaConversation, type Reference } from "../lines/qa";
+import type { Handoff } from "../lines/qa/types";
 import { Avatar } from "./Avatar";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
-import { advanceProgress, getCurrentOutline, getMistakes, getStatus, type OutlineView } from "../lines/v2/api";
+import { advanceProgress, getCurrentOutline, getMistakes, getStatus, getTodaySummary, type OutlineView } from "../lines/v2/api";
 import { ExamCard } from "../lines/v2/ExamCard";
 import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
 import { MistakeBookCard } from "../lines/v2/MistakeBookCard";
@@ -105,6 +106,11 @@ export function Shell() {
   const [doneNote, setDoneNote] = useState("");
   // 在对话里刚确认大纲：今天的安排接在对话后面，不插到最上面。
   const [justAccepted, setJustAccepted] = useState(false);
+  // 正在做的那一件（左栏显示“进行中”，再点只是回到它，不重新开始）。
+  const [inProgress, setInProgress] = useState<string | null>(null);
+  // 刷新前没做完的练习：接着做。
+  const [resumeQuiz, setResumeQuiz] = useState<Handoff["data"] | null>(null);
+  const [totalDays, setTotalDays] = useState(0);
   const [settings, setSettings] = useState(false);
   const activityRef = useRef<HTMLDivElement>(null);
   // 开始一件新的事（讲解 / 考试 / 错题本）时，把它滚到眼前。
@@ -131,13 +137,8 @@ export function Shell() {
     if (!avatar || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const to = avatar.getBoundingClientRect();
     if (!to.width) return;
-    const dx = from.left - to.left;
-    const dy = from.top - to.top;
-    const scale = from.width / to.width;
-    avatar.animate(
-      [{ transformOrigin: "top left", transform: `translate(${dx}px, ${dy}px) scale(${scale})` }, { transformOrigin: "top left", transform: "none" }],
-      { duration: 240, easing: "cubic-bezier(.2,.7,.2,1)" },
-    );
+    // 原地淡入，不再从大头像“飞”过去：飞的途中会盖住对话文字。
+    avatar.animate([{ opacity: 0, transform: "scale(.85)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "ease-out" });
   }, [compact]);
 
   function onStreamScroll() {
@@ -194,6 +195,29 @@ export function Shell() {
     void getCurrentOutline().then((data) => { if (!cancelled) setOutline(data); });
     return () => { cancelled = true; };
   }, [v2Enabled, plan.needs_setup, plan.date, plan.tasks.filter((task) => task.status === "done").length]);
+
+  useEffect(() => {
+    if (v2Enabled !== true || plan.needs_setup === true) return;
+    let cancelled = false;
+    void getTodaySummary().then((data) => { if (!cancelled && data) setTotalDays(data.total_days); });
+    return () => { cancelled = true; };
+  }, [v2Enabled, plan.needs_setup, plan.tasks.filter((task) => task.status === "done").length]);
+
+  // 只在刚打开页面时查一次：今天有没做完的练习组。
+  const resumeChecked = useRef(false);
+  useEffect(() => {
+    if (resumeChecked.current || v2Enabled !== true || source !== "api" || plan.needs_setup === true) return;
+    const practice = plan.tasks.find((task) => task.kind === "practice" && task.status !== "done");
+    const quizId = openQuizId();
+    resumeChecked.current = true;
+    if (!practice || !quizId) return;
+    void api<Handoff["data"]>(`/api/quizzes/${encodeURIComponent(quizId)}`).then((result) => {
+      if (result.source === "api" && !result.envelope.data.completed && result.envelope.data.questions?.length) {
+        setResumeQuiz(result.envelope.data);
+        setInProgress(practice.id);
+      }
+    });
+  }, [v2Enabled, source, plan.needs_setup, plan.tasks]);
 
   useEffect(() => {
     if (v2Enabled !== true) {
@@ -300,9 +324,17 @@ export function Shell() {
     return task.kind === "exam";
   }
 
+  function scrollToBottom() {
+    const el = streamRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }
+
   function startTask(task: PlanToday["tasks"][number]) {
     setRail(false);
     setDoneNote("");
+    // 已经在做这一件：回到它，不重新开始（练习不会再出一组新题）。
+    if (task.id === inProgress || task.id === activeLecture?.taskId) { scrollToBottom(); return; }
+    setInProgress(task.id);
     if (task.kind === "learn" && task.ref?.source === "lecture") setActiveLecture({ unitNo: task.ref.lecture_no!, taskId: task.id });
     else if (task.kind === "learn" && task.ref?.lecture_id) { setPinnedUpload(task.ref.lecture_id); materials.current?.chooseFile(); }
     else if (task.kind === "practice" && task.ref?.lecture_no) void qa.send(`出几道第 ${task.ref.lecture_no} 讲的练习题`);
@@ -339,7 +371,7 @@ export function Shell() {
   // 只有自己交过两份以上课件时，@ 选讲次才有意义；AI 大纲各讲同名，不放进来。
   const realLectures = availableLectures.filter((item) => !item.mock && !isOutlineFilename(item.title));
   const planOpening = <>
-    {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} />}
+    {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} hideDoneCard={v2Enabled === true} />}
     {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
   </>;
   const EXAMPLES = ["两周后考 PMP，每天半小时", "三个月学会 Python 入门", "零基础学吉他，每天 20 分钟"];
@@ -367,7 +399,7 @@ export function Shell() {
             ))}
           </div>
           <p className="rail-caption">
-            约 {plan.minutes} 分钟
+            约 {plan.minutes} 分钟{totalDays > 0 ? ` · 累计学了 ${totalDays} 天` : ""}
           </p>
           {goalDone ? (
             <div className="rail-empty">
@@ -400,7 +432,8 @@ export function Shell() {
                       <strong>{task.title}</strong>
                       <span className="meta">{done ? "已完成" : task.minutes ? `约 ${task.minutes} 分钟` : task.done_when}</span>
                     </span>
-                    {state === "current" && startable ? <span className="task-go">开始</span> : (
+                    {!done && (task.id === inProgress || task.id === activeLecture?.taskId) ? <span className="task-go live">进行中</span>
+                      : state === "current" && startable ? <span className="task-go">开始</span> : (
                       <span className="task-mark" aria-hidden="true">
                         {done && <Icon name="check" />}
                       </span>
@@ -503,7 +536,7 @@ export function Shell() {
                 <span className="today-bar-meter" aria-hidden="true"><span style={{ width: `${(doneCount / plan.tasks.length) * 100}%` }} /></span>
                 <span className="today-bar-next">{nextTask ? `下一件：${nextTask.title}` : "今天的都做完了"}</span>
               </button>
-              {nextTask && canStart(nextTask) && <Button variant="primary" disabled={!qa.sessionReady} onClick={() => startTask(nextTask)}>开始</Button>}
+              {nextTask && canStart(nextTask) && <Button variant="primary" disabled={!qa.sessionReady} onClick={() => startTask(nextTask)}>{nextTask.id === inProgress || nextTask.id === activeLecture?.taskId ? "继续" : "开始"}</Button>}
             </div>
           )}
           <div className="stream" ref={streamRef} onScroll={onStreamScroll}>
@@ -557,6 +590,12 @@ export function Shell() {
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
             {justAccepted && planOpening}
             <div className="activity" ref={activityRef}>
+            {resumeQuiz && (
+              <section aria-label="接着做练习">
+                <p className="done-note" role="status">上次的练习还没做完，接着来。</p>
+                <QaHandoff handoff={{ intent: "quiz", data: resumeQuiz }} onPlanChange={setPlan} onNextTask={() => { setResumeQuiz(null); void startNext(); }} />
+              </section>
+            )}
             {v2Enabled && !activeLecture && firstStep && (
               <Card as="section" aria-label="下一步">
                 <p>{firstStep.text}</p>

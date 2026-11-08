@@ -127,7 +127,11 @@ export async function answerRedo(quizId: string, questionId: string, answer: str
   return { ok: true, result: result.data };
 }
 
-export type TodaySummary = { all_done: boolean; lines: string[]; total_days: number; week_days: number };
+export type TodaySummary = {
+  all_done: boolean; lines: string[]; total_days: number; week_days: number;
+  lectures?: { no: number; title: string }[]; practice?: { total: number; correct: number };
+  exam?: { kind: string; score: number; total?: number; correct?: number } | null; minutes?: number;
+};
 
 /** V2.2 当日总结；读不到返回 null。 */
 export async function getTodaySummary(): Promise<TodaySummary | null> {
