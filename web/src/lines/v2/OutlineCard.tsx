@@ -51,7 +51,7 @@ export function OutlineCard({ outline, busy, error, onPatch, onAccept, onDismiss
   }
 
   return (
-    <Card aria-label="学习大纲">
+    <Card aria-label="学习大纲" className="card-read">
       <header>
         <h3>{outline.title}</h3>
         <Badge sim={outline.label === "模拟"}>{outline.label}</Badge>

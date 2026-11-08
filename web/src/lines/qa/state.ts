@@ -11,7 +11,7 @@ export function applyFrame(answer: Answer, frame: Frame): Answer {
       const refs = Array.isArray(frame.references) ? frame.references.filter((r): r is Reference => Boolean(r && typeof r === "object" && typeof r.lecture_id === "string" && Number.isInteger(r.page) && r.page > 0 && typeof r.quote === "string" && r.quote.trim())) : [];
       return { ...answer, references: refs };
     }
-    case "handoff": return frame.intent === "quiz" || frame.intent === "plan" ? { ...answer, handoff: { intent: frame.intent, data: frame.data as Handoff["data"] } } : answer;
+    case "handoff": return frame.intent === "quiz" || frame.intent === "plan" || frame.intent === "goal" ? { ...answer, handoff: { intent: frame.intent, data: frame.data as Handoff["data"] } } : answer;
     case "complete": return { ...answer, status: frame.ok === false ? "error" : "done", mock: frame.mock === true || answer.mock, error: frame.ok === false ? "回答未完成，请重试。" : answer.error };
     case "error": return { ...answer, status: "error", error: String(frame.message || "回答失败") };
     default: return answer;

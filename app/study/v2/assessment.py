@@ -173,6 +173,12 @@ def _prepare_submission(user_id, assessment_id, answers):
 
 def _complete_practice(user_id, submission):
     plan = plan_service.plan_today(user_id)
+    exam = next((task for task in plan["tasks"] if task["kind"] == "exam"), None)
+    if exam is not None:
+        # V2.1：阶段测验就是今天的考试，只勾考试这一件。
+        if exam["status"] != "done":
+            plan_service.patch_task(user_id, exam["id"], status="done")
+        return
     practice = [task for task in plan["tasks"] if task["kind"] == "practice"]
     ids = {task["id"] for task in practice}
     if ids.intersection(plan["auto_completed"]):

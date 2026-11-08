@@ -13,7 +13,10 @@ export type OutlineView = {
   stages: { no: number; title: string; unit_nos: number[]; started_at?: string }[];
   label: string;
   mock: boolean;
+  learned_up_to?: number;
+  checkpoints?: Checkpoint[];
 };
+export type Checkpoint = { stage_no: number; after_unit: number; title: string; status: "upcoming" | "ready" | "done"; score: number | null };
 
 type Fail = { ok: false; message: string };
 type OutlineResult = { ok: true; outline: OutlineView } | Fail;
@@ -34,6 +37,13 @@ export async function getPlanDate(): Promise<string | null> {
   const date = result.envelope.data?.date;
   if (result.source !== "api" || typeof date !== "string" || !isIsoDate(date)) return null;
   return date;
+}
+
+/** 当前目标已确认的大纲；没有、没连上都返回 null。 */
+export async function getCurrentOutline(): Promise<OutlineView | null> {
+  const result = await api<{ outline?: OutlineView | null }>("/api/v2/outline/current");
+  if (result.source !== "api" || result.envelope.ok === false) return null;
+  return asOutline(result.envelope.data?.outline ?? undefined);
 }
 
 export async function draftOutline(body: DraftBody): Promise<OutlineResult> {
@@ -66,6 +76,75 @@ export async function undoOutline(id: string): Promise<{ ok: true } | Fail> {
   const result = await api<{ plan_today?: { needs_setup?: boolean } }>(`/api/v2/outline/${encodeURIComponent(id)}/undo`, { method: "POST" });
   if (result.source !== "api" || result.envelope.ok === false) return { ok: false, message: "今天没能撤销，可以稍后再试。" };
   return { ok: true };
+}
+
+export type DailyExamReport = { score: number; correct: number; total: number; summary: string };
+export type ExamPaper =
+  | ({ type: "stage" } & Quiz)
+  | { type: "daily"; id: string; label: string; mock: boolean; lecture_no: number; mistake_count: number; submitted: boolean; report: DailyExamReport | null; questions: QuizQuestion[] };
+
+/** 今天的考试：学完一个阶段那天返回阶段测验，其余是每日考试。 */
+export async function startExam(): Promise<{ ok: true; paper: ExamPaper } | Fail> {
+  const result = await request<ExamPaper>("/api/v2/exam/start", { method: "POST" });
+  if (!result.ok) return result;
+  const paper = result.data;
+  if (!paper || typeof paper.id !== "string" || !Array.isArray(paper.questions) || !paper.questions.length) {
+    return { ok: false, message: "题目还没准备好，请再试一次。" };
+  }
+  return { ok: true, paper };
+}
+
+export async function submitExam(id: string, answers: Record<string, string>): Promise<{ ok: true; report: DailyExamReport } | Fail> {
+  const result = await request<DailyExamReport>(`/api/v2/exam/${encodeURIComponent(id)}/submit`, { method: "POST", body: JSON.stringify({ answers }) });
+  if (!result.ok) return result;
+  if (typeof result.data.score !== "number" || typeof result.data.total !== "number") return { ok: false, message: "成绩还没读到，请再试一次。" };
+  return { ok: true, report: result.data };
+}
+
+export type MistakeItem = { question_id: string; stem: string; analysis: string; your_answer: string; your_answer_text: string; answer: string; answer_text: string };
+export type MistakeBook = { count: number; groups: { lecture_no: number; title: string; items: MistakeItem[] }[]; mock: boolean };
+type RedoQuiz = { quiz_id: string; questions: QuizQuestion[]; label?: string };
+type RedoResult = { correct: boolean; analysis: string; answer: string };
+
+/** V2.2 错题本：练习线的错题，按讲分组。 */
+export async function getMistakes(): Promise<MistakeBook | null> {
+  const result = await request<MistakeBook>("/api/v2/mistakes");
+  if (!result.ok || !Array.isArray(result.data.groups)) return null;
+  return result.data;
+}
+
+/** 再做一次：练习线复习模式，会换个问法出这一题。 */
+export async function redoMistake(questionId: string): Promise<{ ok: true; quiz: RedoQuiz } | Fail> {
+  const result = await request<RedoQuiz>("/api/quizzes", { method: "POST", body: JSON.stringify({ mode: "review", question_ids: [questionId], count: 1 }) });
+  if (!result.ok) return result;
+  if (!result.data.questions?.length) return { ok: false, message: "这道题暂时没法再出，请稍后再试。" };
+  return { ok: true, quiz: result.data };
+}
+
+export async function answerRedo(quizId: string, questionId: string, answer: string): Promise<{ ok: true; result: RedoResult } | Fail> {
+  const result = await request<RedoResult>("/api/attempts", { method: "POST", body: JSON.stringify({ quiz_id: quizId, question_id: questionId, answer }) });
+  if (!result.ok) return result;
+  return { ok: true, result: result.data };
+}
+
+export type TodaySummary = {
+  all_done: boolean; lines: string[]; total_days: number; week_days: number;
+  lectures?: { no: number; title: string }[]; practice?: { total: number; correct: number };
+  exam?: { kind: string; score: number; total?: number; correct?: number } | null; minutes?: number;
+};
+
+/** V2.2 当日总结；读不到返回 null。 */
+export async function getTodaySummary(): Promise<TodaySummary | null> {
+  const result = await request<TodaySummary>("/api/v2/today/summary");
+  if (!result.ok || !Array.isArray(result.data.lines)) return null;
+  return result.data;
+}
+
+/** 「学下一讲」学完后记进度，明天从再下一讲开始。 */
+export async function advanceProgress(unitNo: number): Promise<{ ok: true; learnedUpTo: number } | Fail> {
+  const result = await request<{ learned_up_to: number }>("/api/v2/progress", { method: "POST", body: JSON.stringify({ unit_no: unitNo }) });
+  if (!result.ok) return result;
+  return { ok: true, learnedUpTo: result.data.learned_up_to };
 }
 
 export type StageView = { no: number; title: string; unit_nos: number[] };

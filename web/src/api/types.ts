@@ -2,14 +2,14 @@ export type Intensity = "light" | "normal" | "sprint";
 
 export type Task = {
   id: string;
-  kind: "learn" | "practice" | "repair";
+  kind: "learn" | "practice" | "repair" | "exam";
   kind_label: string;
   title: string;
   status: "todo" | "done";
   done_when: string;
   minutes?: number;
   /** 计划线排任务时记下的来源，例如“交第 N 讲课件”是 { source: "upload", lecture_id: "lec-N" }。 */
-  ref?: { source?: string; lecture_id?: string };
+  ref?: { source?: string; lecture_id?: string; lecture_no?: number };
 };
 
 export type PlanToday = {

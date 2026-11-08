@@ -57,7 +57,7 @@ export function Badge({ sim, children }: { sim?: boolean; children: ReactNode })
   return <span className={join("badge", sim && "sim")}>{children}</span>;
 }
 
-export type IconName = "menu" | "check" | "book" | "file" | "chevron" | "down" | "plus" | "up" | "close";
+export type IconName = "menu" | "check" | "book" | "file" | "chevron" | "down" | "plus" | "up" | "close" | "grid" | "path" | "pen";
 
 const PATHS: Record<IconName, string> = {
   menu: "M5 8h14M5 16h14",
@@ -69,6 +69,9 @@ const PATHS: Record<IconName, string> = {
   plus: "M12 5v14M5 12h14",
   up: "M12 19V5m-6 6 6-6 6 6",
   close: "M6 6l12 12M18 6 6 18",
+  grid: "M5 5h5v5H5zM14 5h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z",
+  path: "M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12-10a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM8 17h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6",
+  pen: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
 };
 
 /** 细线图标，颜色跟随文字。 */
@@ -81,7 +84,7 @@ export function Icon({ name, className }: { name: IconName; className?: string }
 }
 
 /** 今天三件的三种图标：学新的（书）、练一练（纸笔）、补一补（复习页）。 */
-export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" }) {
+export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" | "exam" }) {
   return (
     <span className="task-art" aria-hidden="true">
       <svg viewBox="0 0 40 40">
@@ -116,6 +119,15 @@ export function TaskArt({ kind }: { kind: "learn" | "practice" | "repair" }) {
             <path d="m19 27 3-8 5 5z" fill="#e5d4b8" />
             <path d="m19 27 1-3 2 2z" fill="#4e6872" />
             <path d="m29 12 5 5" fill="none" stroke="#e5f3f7" strokeWidth="2" />
+          </>
+        )}
+        {kind === "exam" && (
+          <>
+            <rect x="10" y="8" width="22" height="27" rx="4" fill="#36576b18" />
+            <rect x="8" y="6" width="22" height="27" rx="4" fill="#f9fcfd" stroke="#c9dfe7" />
+            <path d="M13 13h12m-12 5h8" fill="none" stroke="#98b9c7" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="27" cy="27" r="7" fill="#5b9fb6" />
+            <path d="m24 27 2 2 4-4" fill="none" stroke="#f4fafc" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </>
         )}
         {kind === "repair" && (

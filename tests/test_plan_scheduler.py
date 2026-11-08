@@ -204,3 +204,36 @@ def test_api_untick_learn_rolls_progress_back(client, auth, clock):
     clock["today"] = clock["today"] + timedelta(days=1)
     day2 = client.get("/api/plan/today", headers=headers).json()["data"]
     assert next(t for t in day2["tasks"] if t["kind"] == "learn")["ref"]["lecture_no"] == 7
+
+
+# ---------- V2.1：学、练、考 ----------
+
+
+def test_v2_fixed_learn_practice_exam_on_next_lecture():
+    tasks = scheduler.schedule(inputs(v2=True, lecture_count=10, learned_up_to=0, lectures=tuple(lec(n) for n in range(1, 11))))
+    assert kinds(tasks) == ["learn", "practice", "exam"]
+    assert {t.ref["lecture_no"] for t in tasks} == {1}
+    assert tasks[0].ref["source"] == "lecture" and tasks[2].ref["mistake_ids"] == []
+
+
+def test_v2_exam_takes_old_mistakes_but_not_today():
+    wrong = (MistakeItem("q2", "lec-1", YESTERDAY), MistakeItem("q1", "lec-2", YESTERDAY - timedelta(days=1)), MistakeItem("q3", "lec-2", TODAY))
+    tasks = scheduler.schedule(inputs(v2=True, lecture_count=5, learned_up_to=2, lectures=tuple(lec(n) for n in range(1, 6)), mistakes=wrong))
+    assert kinds(tasks) == ["learn", "practice", "exam"]  # 错题不再单独排「补一补」
+    assert tasks[0].ref["lecture_no"] == 3 and tasks[2].ref["mistake_ids"] == ["q1", "q2"]
+
+
+def test_v2_all_learned_keeps_practice_and_exam_on_last_lecture():
+    tasks = scheduler.schedule(inputs(v2=True, lecture_count=3, learned_up_to=3, lectures=tuple(lec(n) for n in range(1, 4))))
+    assert kinds(tasks) == ["practice", "exam"] and tasks[0].ref["lecture_no"] == 3
+
+
+def test_v2_exam_text_follows_intensity():
+    ref = {"source": "exam", "lecture_no": 2, "mistake_ids": ["a", "b"]}
+    assert scheduler.describe("exam", ref, "light")["amount"] == "3 道单选题，含 2 道之前的错题"
+    assert scheduler.describe("exam", {"lecture_no": 2}, "sprint")["amount"] == "8 道单选题，都是第 2 讲的题"
+
+
+def test_v2_off_keeps_mvp_rules():
+    tasks = scheduler.schedule(inputs(lecture_count=10, learned_up_to=0, lectures=tuple(lec(n) for n in range(1, 11))))
+    assert kinds(tasks) == ["learn", "learn"]

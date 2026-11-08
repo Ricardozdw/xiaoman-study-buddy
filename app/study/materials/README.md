@@ -17,12 +17,13 @@ pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
 python scripts/ensure_local_auth.py
 ```
 
-AI 整理使用现有模型网关。可在本机 `.env` 配置模型密钥；示例配置 `config/materials-models.example.json` 将 **materials.summary 这一项能力** 路由到 DeepSeek Flash / V4 Pro 主备链，不改变其他聊天或计划能力。
+AI 整理使用现有模型网关。可在本机 `.env` 配置模型密钥；`materials.summary` 走强档，主备模型统一见 `deploy/xiaoman/models.example.json`（强档 `deepseek-reasoner` 主 / `kimi-k3` 备）。
 
 ```dotenv
 # 真实值仅在本机填写，不提交、不截图、不发聊天。
 DEEPSEEK_API_KEY=
-LLM_CONFIG_FILE=config/materials-models.example.json
+KIMI_API_KEY=
+LLM_CONFIG_FILE=deploy/xiaoman/models.example.json
 ```
 
 未配可用模型时，系统仍能读 PDF 和看原文，但会明确提示“模型未配置”，不生成占位笔记。配好后点“重试整理笔记”，不必重传 PDF。

@@ -19,12 +19,13 @@ from typing import Any, Optional
 
 MAX_TASKS = 3
 KINDS = ("learn", "practice", "repair")
-KIND_LABEL = {"learn": "学新的", "practice": "练一练", "repair": "补一补"}
+KIND_LABEL = {"learn": "学新的", "practice": "练一练", "repair": "补一补", "exam": "考试"}
 
 # 每档强度下各类任务的分量。件数不变，变的是这里。
 PRACTICE_COUNT = {"light": 3, "normal": 5, "sprint": 8}
 REDO_CAP = {"light": 2, "normal": 3, "sprint": 5}
 REVIEW_AMOUNT = {"light": "看一眼要点", "normal": "看要点，再做 2 道题", "sprint": "看要点，再做 3 道题"}
+EXAM_COUNT = {"light": 3, "normal": 5, "sprint": 8}  # V2.1 每天的考试题量，错题优先
 LEARN_AMOUNT = {"light": "看要点", "normal": "看要点和知识点", "sprint": "看完整学习文档"}
 
 # 掌握度到这个数以上的知识点，不再排进“补一补”的复习。
@@ -69,6 +70,8 @@ class PlanInputs:
     # 中断后回来选了补法时：一次学两讲。mode 是 sprint（冲刺补课）或 skim（只看要点）。
     learn_per_task: int = 1
     learn_mode: str = ""
+    # V2.1：开关打开且已确认大纲时，每天固定「学第 N 讲 → 练第 N 讲 → 考试」。
+    v2: bool = False
 
 
 @dataclass
@@ -179,10 +182,35 @@ def _same(a: TaskDraft, b: TaskDraft) -> bool:
     return a.kind == b.kind and a.ref == b.ref
 
 
+def _schedule_v2(inputs: PlanInputs) -> list[TaskDraft]:
+    """V2.1 每天三件：学新的一讲、练这一讲、考试（固定最后，含之前的错题）。
+
+    全部学完后不再排「学新的」，练和考落在最后一讲上。
+    """
+    lectures = _lecture_map(inputs)
+    if inputs.lecture_count <= 0:
+        return []
+    next_no = inputs.learned_up_to + 1
+    target = next_no if next_no <= inputs.lecture_count else inputs.lecture_count
+    state = lectures.get(target)
+    lecture_id = state.lecture_id if state else lecture_id_for(target)
+    base = {"lecture_no": target, "lecture_id": lecture_id}
+    picked: list[TaskDraft] = []
+    if next_no <= inputs.lecture_count:
+        source = "lecture" if state is not None and state.has_material else "upload"
+        picked.append(TaskDraft("learn", {"source": source, **base}))
+    picked.append(TaskDraft("practice", {"source": "quiz", **base}))
+    old = sorted((i for i in inputs.mistakes if i.wrong_on < inputs.today), key=lambda i: (i.wrong_on, i.question_id))
+    picked.append(TaskDraft("exam", {"source": "exam", **base, "mistake_ids": [i.question_id for i in old]}))
+    return picked
+
+
 def schedule(inputs: PlanInputs) -> list[TaskDraft]:
     """算出今天最多三件，已排好顺序，第一件就是“先做这件”。"""
     if not inputs.goal_active:
         return []
+    if inputs.v2:
+        return _schedule_v2(inputs)
     pools = {
         "learn": _learn_candidates(inputs),
         "practice": _practice_candidates(inputs),
@@ -281,6 +309,16 @@ def describe(kind: str, ref: dict[str, Any], intensity: str) -> dict[str, str]:
             "amount": REVIEW_AMOUNT[level],
             "reason": f"{lecture}的这一点还没完全掌握，到了该复习的时候",
             "done_when": "看完要点",
+        }
+    if kind == "exam":
+        count = EXAM_COUNT[level]
+        wrong = len(ref.get("mistake_ids") or [])
+        mix = f"含 {min(wrong, count)} 道之前的错题" if wrong else f"都是{lecture}的题"
+        return {
+            "title": f"考试 · {lecture}",
+            "amount": f"{count} 道单选题，{mix}",
+            "reason": "今天学的考一考，之前错的也再试一次",
+            "done_when": "交卷就算完成",
         }
     return {"title": "今天的一件事", "amount": "", "reason": "", "done_when": "做完就算"}
 

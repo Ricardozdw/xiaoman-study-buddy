@@ -91,6 +91,8 @@ def gather_facts(session, user_id: str, today: date) -> dict[str, Any]:
         "last_mistakes": {"lecture_no": scheduler.lecture_no_for(lecture_id), "count": count} if count else None,
         "first_task": first_title,
         "task_count": len(tasks),
+        # 今天每件的标题；件数不是讲数（V2.1 每天是 学 / 练 / 考 各一件）。
+        "today_tasks": [service._task_view(t, plan.intensity if plan else "normal")["title"] for t in tasks],
         "has_card": card is not None,
         "card_title": service._card_meta(card).get("title") if card is not None else "",
     }

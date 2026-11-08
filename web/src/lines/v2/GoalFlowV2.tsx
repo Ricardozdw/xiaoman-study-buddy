@@ -35,7 +35,7 @@ function readStored(): AcceptedOutline | null {
   return null;
 }
 
-function rememberAcceptance(id: string, day: string) {
+export function rememberAcceptance(id: string, day: string) {
   try {
     sessionStorage.setItem(ACCEPT_STORAGE_KEY, JSON.stringify({ id, day }));
   } catch {

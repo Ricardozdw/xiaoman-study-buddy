@@ -12,9 +12,9 @@ import type { DemoClock, GoalQuestion, Opening, PlanCard, PlanOption, PlanTodayE
 // 演示开关只在开发模式（showDemo）显示。
 // 改到左栏的操作（生效、撤销、跳日期）做完刷新整页，因为左栏归共用的 Shell 管。
 
-type Props = { inChat?: boolean; showDemo?: boolean };
+type Props = { hideDoneCard?: boolean; inChat?: boolean; showDemo?: boolean };
 
-export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
+export function PlanLine({ inChat = false, showDemo = true, hideDoneCard = false }: Props = {}) {
   const [plan, setPlan] = useState<PlanTodayExt | null>(null);
   const [opening, setOpening] = useState<Opening | null>(null);
   const [questions, setQuestions] = useState<GoalQuestion[]>([]);
@@ -91,7 +91,7 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
     <section aria-label="计划线">
       {opening && (inChat ? (
         <Bubble role="xiaoman">
-          {opening.label && <><Badge sim={opening.label === "模拟"}>{opening.label}</Badge><br /></>}
+          {opening.label === "模拟" ? <><Badge sim>模拟</Badge><br /></> : opening.label ? <span className="ai-tag">AI 整理</span> : null}
           {opening.greeting}
         </Bubble>
       ) : (
@@ -130,7 +130,7 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
         </div>
       )}
 
-      {plan.done_card && !card && (
+      {plan.done_card && !card && !hideDoneCard && (
         <article className="card" aria-label="收工">
           <header>
             <h3>{plan.done_card.title}</h3>
@@ -148,13 +148,13 @@ export function PlanLine({ inChat = false, showDemo = true }: Props = {}) {
       {reply && <p className="aux">{reply}</p>}
 
       {!card && !asking && plan.quick_replies.length > 0 && (
-        <div className="btns" aria-label="快捷回复">
-          {plan.quick_replies.map((item) => (
+        <div className="quick-replies" aria-label="快捷回复">
+          {plan.quick_replies.filter((item) => item.action === "goal_setup" || item.action === "adjust").map((item) => (
             <button
               key={item.text}
               type="button"
               className="btn"
-              disabled={busy || item.action === "start_task" || item.action === "tomorrow" || item.action === "dashboard"}
+              disabled={busy}
               onClick={() => {
                 if (item.action === "goal_setup") void startSetup();
                 if (item.action === "adjust") void run("adjust", "/api/plan/adjust", { text: item.text });

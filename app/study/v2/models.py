@@ -35,3 +35,16 @@ class Assessment(Base):
     report_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[str] = mapped_column(String(40), default=_now)
     submitted_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
+class UnitLecture(Base):
+    __tablename__ = "unit_lectures"
+
+    id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(128), index=True)
+    outline_id: Mapped[str] = mapped_column(String(200))
+    unit_no: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text, default="")
+    sections_json: Mapped[str] = mapped_column(Text, default="[]")
+    label: Mapped[str] = mapped_column(String(64), default="通用知识，没有出处")
+    created_at: Mapped[str] = mapped_column(String(40), default=_now)

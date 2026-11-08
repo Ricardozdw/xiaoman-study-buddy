@@ -19,7 +19,9 @@ from .safety import clean_text, prompt
 
 class Intent(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    intent: Literal["qa", "quiz", "plan", "chat"]
+    intent: Literal["qa", "quiz", "plan", "goal", "chat"]
+    goal: str = ""
+    goal_type: Literal["exam", "course", "skill"] = "skill"
 
 
 def _offline(text: str) -> str:
@@ -27,6 +29,8 @@ def _offline(text: str) -> str:
         return "quiz"
     if re.search(r"\d+\s*分钟|调整.*安排|调整.*计划|换.*强度|今天.*没空|今天.*时间|轻松一点|冲刺", text):
         return "plan"
+    if re.search(r"想学|想转行|想开始学|定.*目标|学习目标|把.*捡起来|学会|系统学", text):
+        return "goal"
     if re.fullmatch(r"[你好您好早晚安谢再见嗨哈呀啊！!，,。\s]+", text):
         return "chat"
     return "qa"
@@ -54,7 +58,7 @@ def classify(user_id: str, text: str) -> dict:
                                 estimated=1, latency_ms=int((time.perf_counter()-started)*1000), ok=int(parsed is not None)))
             session.commit()
         if parsed is not None:
-            return {"intent": parsed.intent, "mock": offline or raw.get("_mode") == "mock"}
+            return {"intent": parsed.intent, "goal": parsed.goal, "goal_type": parsed.goal_type, "mock": offline or raw.get("_mode") == "mock"}
         write_bad_case(user_id=user_id, capability="理解用户想干嘛", input_payload={"message": text, "attempt": attempt + 1},
                        actual_output=clean_text(user_id, json.dumps(raw, ensure_ascii=False)), prompt_version="qa.intent@v1", problem_type="格式错", source="qa_intent")
         system += "\n上次格式不对，只返回包含 intent 的 JSON。"

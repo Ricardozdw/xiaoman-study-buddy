@@ -45,7 +45,7 @@ export type UnitInput = { title: string; points: string[] };
 export const MATERIALS_NOW_NOTICE = "V2 先支持没资料这条路，资料可以之后再交";
 export const CONFIRM_SENTENCE = "这些是先按默认排的";
 export const ACCEPT_STORAGE_KEY = "xiaoman.v2.acceptedOutline";
-export const ACCEPTED_TEXT = "已按这份大纲排好，今天的三件在左边";
+export const ACCEPTED_TEXT = "已按这份大纲排好今天的三件";
 
 export const DEFAULT_TITLE = "把这门课学完";
 export const DEFAULT_MINUTES = 30;
@@ -303,4 +303,48 @@ export type AcceptedOutline = { id: string; day: string };
 export function acceptanceNotice(stored: AcceptedOutline | null, today: string): { id: string; text: string } | null {
   if (!stored?.id || stored.day !== today) return null;
   return { id: stored.id, text: ACCEPTED_TEXT };
+}
+
+type LearnTask = { id: string; kind?: string; status: string; ref?: { source?: string; lecture_no?: number } };
+type UnitTitles = { units: { no?: number; title: string }[] };
+
+/** 正在学的单元：今天第一件没完成的「学第 N 讲」；都学完了就是今天学的那一讲（练、考还在这一讲上）。 */
+export function currentUnitNo(tasks: LearnTask[]): number | null {
+  const learn = tasks.filter((item) => item.kind === "learn" && item.ref?.source === "lecture" && typeof item.ref.lecture_no === "number");
+  const task = learn.find((item) => item.status !== "done") ?? learn[learn.length - 1];
+  return task?.ref?.lecture_no ?? null;
+}
+
+/** 块4：确认大纲后、第 1 讲还没学完时，明确告诉用户下一步。 */
+export function firstLectureStep(outline: UnitTitles | null, tasks: LearnTask[]): { unitNo: number; taskId: string; text: string } | null {
+  if (!outline || !outline.units.length) return null;
+  const task = tasks.find((item) => item.kind === "learn" && item.status !== "done" && item.ref?.source === "lecture" && item.ref.lecture_no === 1);
+  if (!task) return null;
+  const title = outline.units.find((unit, index) => (unit.no ?? index + 1) === 1)?.title ?? outline.units[0].title;
+  return { unitNo: 1, taskId: task.id, text: `大纲好了，我们从第 1 讲「${title}」开始。` };
+}
+
+type PathOutline = {
+  units: { no?: number; title: string; points: string[] }[];
+  learned_up_to?: number;
+  checkpoints?: { stage_no: number; after_unit: number; title: string; status: "upcoming" | "ready" | "done"; score: number | null }[];
+};
+export type PathNode = {
+  no: number;
+  title: string;
+  points: string[];
+  state: "done" | "today" | "upcoming";
+  learned: boolean;
+  checkpoint: NonNullable<PathOutline["checkpoints"]>[number] | null;
+};
+
+/** V2.2 路径图：每讲的状态 + 阶段关卡挂在该阶段最后一讲后面。 */
+export function pathNodes(outline: PathOutline, currentNo: number | null): PathNode[] {
+  const learned = outline.learned_up_to ?? 0;
+  const gates = new Map((outline.checkpoints ?? []).map((gate) => [gate.after_unit, gate]));
+  return outline.units.map((unit, index) => {
+    const no = unit.no ?? index + 1;
+    const state = no === currentNo ? "today" : no <= learned ? "done" : "upcoming";
+    return { no, title: unit.title, points: unit.points, state, learned: no <= learned, checkpoint: gates.get(no) ?? null };
+  });
 }

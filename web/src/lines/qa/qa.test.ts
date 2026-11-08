@@ -4,7 +4,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { consumeSse, requestJson, loadSource, createSessionInitializer } from "./transport";
 import { applyFrame, emptyAnswer, nextCurrentLectureId } from "./state";
-import { QaAnswer, QaSourceText, LecturePicker, CitedText } from "./index";
+import { QaAnswer, QaHandoff, QaSourceText, LecturePicker, CitedText } from "./index";
 function response(text: string, byteSize = 1) {
   const bytes = new TextEncoder().encode(text);
   return new Response(new ReadableStream({ start(c) {
@@ -81,7 +81,7 @@ describe("QA product contracts", () => {
   it("renders only one practice question for one decision at a time",()=>{
     const answer={...emptyAnswer("a"),status:"done" as const,handoff:{intent:"quiz" as const,data:{label:"模拟",questions:[{id:"q1",kind:"single",stem:"第一题",options:[{id:"A",text:"甲"}]},{id:"q2",kind:"single",stem:"第二题",options:[]}]}}};
     const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
-    expect(html).toContain("第一题"); expect(html).toContain("A 甲"); expect(html).not.toContain("第二题");
+    expect(html).toContain("第一题"); expect(html).toContain('<span class="option-key">A</span>甲'); expect(html).not.toContain("第二题");
   });
 });
 
@@ -165,9 +165,15 @@ it("renders native plan option labels rather than a fabricated generic choice",(
 it("keeps lake-blue Shell navigation while using QA current lecture selection",async()=>{
   const { Shell }=await import('../../components/Shell');
   const html=renderToStaticMarkup(createElement(Shell));
-  expect(html).toContain('companion');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
-  expect(html).toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
-  expect(html).toContain('打开学习文档');expect(html).toContain('字号');
+  expect(html).toContain('class="hero"');expect(html).toContain('/xiaoman-lake-blue.png');expect(html).toContain('今天三件');
+  // 只有一份资料时不放讲次选择；字号和授权收进“设置”；不出现开发用语。
+  expect(html).not.toContain('当前学习（暂无资料）');expect(html).toContain('maxLength="4000"');
+  // 学习文档 / 学习路径 / 错题本 / 交课件 收进右上角“更多”；首屏是“月/日 + 一句话状态”。
+  expect(html).toContain('aria-label="更多"');expect(html).toContain('aria-label="设置"');
+  expect(html).toContain('<b>11</b>/04');expect(html).toContain('今天还有 3 件事');
+  // 我的资料为空时只放一句说明，不留一个空的白底框。
+  expect(html).toContain('我的资料');expect(html).not.toContain('class="list-group"');
+  expect(html).not.toContain('已连接');expect(html).not.toContain('占位');expect(html).not.toContain('今天的三件在左边');
 });
 
 it("submits native plan option/date and keeps dismiss and undo on official routes",async()=>{
@@ -209,8 +215,8 @@ it("keeps long quiz choices in the wrapping option variant without changing thei
   const text="学习资料中的一个很长的选项".repeat(30);
   const answer={...emptyAnswer("long-options"),status:"done" as const,handoff:{intent:"quiz" as const,data:{label:"模拟",questions:[{id:"q-long",kind:"single",stem:"长选项",options:[{id:"A",text},{id:"B",text:"短选项"}]}]}}};
   const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
-  expect(html.match(/class="btn option"/g)).toHaveLength(2);
-  expect(html).toContain(text); expect(html).toContain("B 短选项");
+  expect(html.match(/class="btn option ?"/g)).toHaveLength(2);
+  expect(html).toContain(text); expect(html).toContain('<span class="option-key">B</span>短选项');
 });
 
 it("keeps file selection mounted but does not show an idle materials card in a fresh chat",async()=>{
@@ -218,4 +224,40 @@ it("keeps file selection mounted but does not show an idle materials card in a f
   const html=renderToStaticMarkup(createElement(Shell));
   expect(html).toContain('aria-label="选择 PDF 文件"');
   expect(html).not.toContain('aria-label="资料读取"');
+});
+
+it("goal follow-up questions show option chips only while current, without AI tag or feedback buttons",()=>{
+  const answer={...emptyAnswer("g"),text:"每天大概有多少时间？",messageId:"m1",intent:"goal",status:"done" as const,handoff:{intent:"goal" as const,data:{question:"每天大概有多少时间？",options:["15 分钟","30 分钟"]}}};
+  const live=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{},onQuickReply:()=>{}}));
+  expect(live).toContain("30 分钟");expect(live).not.toContain("AI 整理");expect(live).not.toContain("赞同回答");
+  const old=renderToStaticMarkup(createElement(QaAnswer,{answer,active:false,onReference:()=>{},onQuickReply:()=>{}}));
+  expect(old).not.toContain("30 分钟");
+});
+
+it("real answers keep the AI tag and feedback buttons",()=>{
+  const answer={...emptyAnswer("q"),text:"关键路径是最长的那条",messageId:"m2",intent:"qa",status:"done" as const};
+  const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{}}));
+  expect(html).toContain("AI 整理");expect(html).toContain("赞同回答");
+});
+
+it("remembers today's open quiz and resumes at the first unanswered question",async()=>{
+  const store=new Map<string,string>();
+  vi.stubGlobal('localStorage',{getItem:(k:string)=>store.get(k)??null,setItem:(k:string,v:string)=>{store.set(k,v);},removeItem:(k:string)=>{store.delete(k);}});
+  const { rememberQuiz, openQuizId, forgetQuiz }=await import('./index');
+  rememberQuiz('quiz-1');expect(openQuizId()).toBe('quiz-1');
+  forgetQuiz('other');expect(openQuizId()).toBe('quiz-1');
+  forgetQuiz('quiz-1');expect(openQuizId()).toBeNull();
+  store.set('xm-open-quiz',JSON.stringify({quizId:'old',day:'2000-01-01'}));expect(openQuizId()).toBeNull();
+  const data={quiz_id:'quiz-2',questions:[{id:'q1',kind:'single',stem:'第一题',options:['甲']},{id:'q2',kind:'single',stem:'第二题',options:['乙']}],results:{q1:{correct:true}}};
+  const html=renderToStaticMarkup(createElement(QaHandoff,{handoff:{intent:'quiz',data}}));
+  expect(html).toContain('第二题');expect(html).not.toContain('第一题');expect(html).toContain('第 2 / 2 题');
+  vi.unstubAllGlobals();
+});
+
+it("failed answers with no text show no empty bubble and offer a retry",()=>{
+  const answer={...emptyAnswer("f"),status:"error" as const,error:"这次回答没有完成，请稍后重试。"};
+  let retried=0;
+  const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{},onRetry:()=>{retried++;}}));
+  expect(html).not.toContain('class="bubble');expect(html).toContain("再试一次");expect(html).toContain("请稍后重试");
+  expect(retried).toBe(0);
 });

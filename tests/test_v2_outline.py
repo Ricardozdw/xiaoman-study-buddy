@@ -99,7 +99,8 @@ def test_draft_patch_accept_and_undo(api, owner):
     today = api.get("/api/plan/today",headers=headers).json()
     assert today["mock"] is False and today["data"]["needs_setup"] is False
     assert today["data"]["tasks"][0]["title"].startswith("学第 1 讲")
-    assert len(today["data"]["tasks"]) <= 3
+    assert [task["kind"] for task in today["data"]["tasks"]] == ["learn", "practice", "exam"]  # V2.1 学、练、考
+    assert today["data"]["tasks"][2]["kind_label"] == "考试"
     lecture_data = api.get("/api/qa/lectures", headers=headers).json()["data"]
     assert lecture_data["current_lecture_id"] == "lec-1"
     lectures = lecture_data["items"]
@@ -247,3 +248,19 @@ def test_real_application_session_middleware_can_bind_request_identity(owner,mon
     from app.study.v2.models import GoalOutline
     with SessionLocal() as session:
         assert session.get(GoalOutline,data['id']).user_id==owner[0]
+
+
+def test_current_outline_follows_accept_undo_and_owner(api, owner, auth):
+    """块4：确认后能读回当前大纲；撤销后为空；别人读不到。"""
+    _, headers = owner
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None
+    data = draft(api, owner)
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None  # 草稿不算
+    path = f'/api/v2/outline/{data["id"]}'
+    assert api.post(path + "/accept", headers=headers).status_code == 200
+    got = api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"]
+    assert got["id"] == data["id"] and got["status"] == "accepted" and got["units"] == data["units"]
+    other = auth("outline-other-" + uuid4().hex)
+    assert api.get("/api/v2/outline/current", headers=other).json()["data"]["outline"] is None
+    assert api.post(path + "/undo", headers=headers).status_code == 200
+    assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None

@@ -1,23 +1,50 @@
 {
   "models": {
-    "study-primary": {
-      "model": "deepseek-flash",
-      "base_url": "https://api.deepseek.com",
-      "api_key_env": "DEEPSEEK_API_KEY",
-      "price_input": 2,
-      "price_output": 8,
-      "currency": "CNY",
-      "params": {"thinking": {"type": "disabled"}}
+    "deepseek-chat": {
+      "model": "deepseek-chat",
+      "protocol": "openai",
+      "vendor": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_env": "DEEPSEEK_API_KEY"
     },
-    "study-backup": {
-      "model": "deepseek-v4-pro",
-      "base_url": "https://api.deepseek.com",
-      "api_key_env": "DEEPSEEK_API_KEY",
-      "price_input": 9,
-      "price_output": 27,
-      "currency": "CNY",
-      "params": {"thinking": {"type": "disabled"}}
+    "qwen-plus": {
+      "model": "qwen-plus",
+      "protocol": "openai",
+      "vendor": "qwen",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "params": {"enable_thinking": false}
+    },
+    "deepseek-reasoner": {
+      "model": "deepseek-reasoner",
+      "protocol": "openai",
+      "vendor": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key_env": "DEEPSEEK_API_KEY"
+    },
+    "kimi-k3": {
+      "model": "kimi-k3",
+      "protocol": "openai",
+      "vendor": "kimi",
+      "base_url": "https://api.moonshot.cn/v1",
+      "api_key_env": "KIMI_API_KEY",
+      "rpm": 3
     }
   },
-  "tiers": {"fast": ["study-primary", "study-backup"], "strong": ["study-primary", "study-backup"]}
+  "tiers": {
+    "fast": ["deepseek-chat", "qwen-plus"],
+    "strong": ["deepseek-reasoner", "kimi-k3"]
+  },
+  "tasks": {
+    "qa.intent": "fast",
+    "plan.opening": "fast",
+    "qa.answer": "fast",
+    "materials.summary": "strong",
+    "practice.generate": "strong",
+    "practice.check": "strong",
+    "practice.rephrase": "strong",
+    "goal.outline": "strong",
+    "unit.lecture": "strong",
+    "dashboard.eval": "strong"
+  }
 }

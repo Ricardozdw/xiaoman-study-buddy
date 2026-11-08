@@ -48,6 +48,67 @@ def view(row):
             "stages": json.loads(row.stages_json), "label": row.label, "mock": row.label == "模拟"}
 
 
+def current(user_id):
+    """当前目标已确认的大纲；没有则返回 None。只读本人的数据。"""
+    from .lecture import current_outline_id
+    outline_id = current_outline_id(user_id)
+    if not outline_id:
+        return None
+    with SessionLocal() as session:
+        row = session.scalar(select(GoalOutline).where(GoalOutline.id == outline_id, GoalOutline.user_id == user_id))
+        if row is None or row.status != "accepted":
+            return None
+        goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
+        learned = json.loads(goal.summary_json or "{}").get("learned_up_to") if goal else 0
+        learned = learned if isinstance(learned, int) else 0
+        return {**view(row), "learned_up_to": learned, "checkpoints": _checkpoints(session, user_id, row, learned)}
+
+
+def _checkpoints(session, user_id, row, learned):
+    """V2.2 路径图的关卡：每个阶段末尾一个。已考给分数；该阶段都学完了就是可以考。"""
+    from .models import Assessment
+    scores = {}
+    for record in session.scalars(select(Assessment).where(
+            Assessment.user_id == user_id, Assessment.outline_id == row.id,
+            Assessment.stage_no > 0, Assessment.status == "submitted")):
+        scores[record.stage_no] = record.score
+    out = []
+    for stage in json.loads(row.stages_json):
+        no = stage["no"]
+        if no in scores:
+            status = "done"
+        elif stage["unit_nos"] and max(stage["unit_nos"]) <= learned:
+            status = "ready"
+        else:
+            status = "upcoming"
+        out.append({"stage_no": no, "after_unit": max(stage["unit_nos"]) if stage["unit_nos"] else 0,
+                    "title": stage.get("title", ""), "status": status, "score": scores.get(no)})
+    return out
+
+
+def advance(user_id, unit_no):
+    """V2.1「学下一讲」：今天三件之外多学的一讲也算进度。只能往后推一讲，重复提交不变。"""
+    with SessionLocal.begin() as session:
+        goal = session.scalar(select(Goal).where(Goal.user_id == user_id).with_for_update())
+        outline_id = json.loads(goal.summary_json or "{}").get("v2", {}).get("outline_id") if goal else ""
+        row = session.scalar(select(GoalOutline).where(GoalOutline.id == outline_id, GoalOutline.user_id == user_id)) if outline_id else None
+        if row is None or row.status != "accepted":
+            raise HTTPException(409, "还没有确认大纲")
+        summary = json.loads(goal.summary_json or "{}")
+        learned = summary.get("learned_up_to") if isinstance(summary.get("learned_up_to"), int) else 0
+        if unit_no > len(json.loads(row.units_json)) or unit_no > learned + 1:
+            raise HTTPException(422, "只能接着学下一讲")
+        if unit_no == learned + 1:
+            summary["learned_up_to"] = unit_no
+            day = plan_service.today_for(user_id).isoformat()
+            extra = summary.get("v2_extra") if isinstance(summary.get("v2_extra"), dict) else {}
+            nos = extra.get("nos", []) if extra.get("day") == day else []
+            summary["v2_extra"] = {"day": day, "nos": [*nos, unit_no]}  # 当日总结用：今天多学了哪几讲
+            goal.summary_json = _dump(summary)
+            learned = unit_no
+        return {"learned_up_to": learned}
+
+
 def draft(user_id, goal):
     ensure_schema()
     goal = {**goal, "today": plan_service.today_for(user_id).isoformat()}

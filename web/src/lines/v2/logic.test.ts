@@ -253,8 +253,48 @@ describe("来源标记与当天撤销", () => {
   });
 
   it("撤销提示只在确认当天出现", () => {
-    expect(acceptanceNotice({ id: "abc", day: TODAY }, TODAY)?.text).toBe("已按这份大纲排好，今天的三件在左边");
+    expect(acceptanceNotice({ id: "abc", day: TODAY }, TODAY)?.text).toBe("已按这份大纲排好今天的三件");
     expect(acceptanceNotice({ id: "abc", day: TODAY }, "2026-11-08")).toBeNull();
     expect(acceptanceNotice(null, TODAY)).toBeNull();
+  });
+});
+
+describe("块4 大纲保留与下一步", () => {
+  const outline = { units: [{ no: 1, title: "认识 AI 产品经理" }, { no: 2, title: "需求分析" }] };
+  const learn = (id: string, no: number, status = "todo") => ({ id, kind: "learn", status, ref: { source: "lecture", lecture_no: no } });
+
+  it("第 1 讲没学完时提示从第 1 讲开始", async () => {
+    const { firstLectureStep } = await import("./logic");
+    expect(firstLectureStep(outline, [learn("t1", 1)])).toEqual({ unitNo: 1, taskId: "t1", text: "大纲好了，我们从第 1 讲「认识 AI 产品经理」开始。" });
+  });
+
+  it("第 1 讲学完、没有大纲或没有任务时不提示", async () => {
+    const { firstLectureStep } = await import("./logic");
+    expect(firstLectureStep(outline, [learn("t1", 1, "done"), learn("t2", 2)])).toBeNull();
+    expect(firstLectureStep(null, [learn("t1", 1)])).toBeNull();
+    expect(firstLectureStep(outline, [])).toBeNull();
+  });
+
+  it("正在学的单元取第一件没完成的学习任务", async () => {
+    const { currentUnitNo } = await import("./logic");
+    expect(currentUnitNo([learn("t1", 1, "done"), { id: "p", kind: "practice", status: "todo" }, learn("t2", 2)])).toBe(2);
+    expect(currentUnitNo([{ id: "p", kind: "practice", status: "todo" }])).toBeNull();
+    expect(currentUnitNo([learn("t1", 3, "done"), { id: "e", kind: "exam", status: "todo" }])).toBe(3);
+  });
+});
+
+describe("V2.2 学习路径图", () => {
+  it("学过 / 今天 / 未学，关卡挂在阶段最后一讲后面", async () => {
+    const { pathNodes } = await import("./logic");
+    const outline = {
+      units: [1, 2, 3, 4].map((no) => ({ no, title: `单元${no}`, points: ["要点"] })),
+      learned_up_to: 2,
+      checkpoints: [{ stage_no: 1, after_unit: 2, title: "", status: "ready" as const, score: null }],
+    };
+    const nodes = pathNodes(outline, 3);
+    expect(nodes.map((n) => n.state)).toEqual(["done", "done", "today", "upcoming"]);
+    expect(nodes.map((n) => n.checkpoint?.stage_no ?? null)).toEqual([null, 1, null, null]);
+    expect(nodes.map((n) => n.learned)).toEqual([true, true, false, false]);
+    expect(pathNodes(outline, 2)[1]).toMatchObject({ state: "today", learned: true }); // 今天学完了仍高亮、可回看
   });
 });

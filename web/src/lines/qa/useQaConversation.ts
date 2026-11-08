@@ -44,5 +44,5 @@ export function useQaConversation(options: { initialThreadId?: string } = {}) {
       update(answer => ({ ...answer, status: "error", error: stopped ? "已停止生成，这条回答未完成。" : error instanceof Error ? error.message : "连接失败，请重试。" }));
     } finally { active.current = null; setBusy(false); }
   }
-  return { messages, busy, sessionReady, addNotice: (text: string) => setMessages(list => appendLocalNotice(list, text)), send, stop: () => active.current?.abort(), lectures, lectureId, setLectureId, currentLectureId, lectureError, threadId };
+  return { messages, busy, sessionReady, addNotice: (text: string) => setMessages(list => appendLocalNotice(list, text)), addNote: (text: string) => setMessages(list => [...list, { ...emptyAnswer(crypto.randomUUID()), text, status: "done", intent: "notice" }]), send, stop: () => active.current?.abort(), lectures, lectureId, setLectureId, currentLectureId, lectureError, threadId };
 }

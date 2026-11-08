@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.auth import require_user
 from app.study.common.http import pack
-from . import assessment, completion, service
+from . import assessment, completion, exam, lecture, mistakes, service, summary
 from .outline import Unit
 
 router = APIRouter()
@@ -32,8 +32,47 @@ class PatchBody(BaseModel):
     units: list[Unit] = Field(min_length=1, max_length=20)
 
 
+class LectureBody(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    unit_no: int = Field(ge=1)
+
+
+@router.get("/api/v2/mistakes")
+def mistake_book(user_id: str = Depends(require_user)):
+    data = mistakes.book(user_id)
+    return pack(data, mock=data["mock"])
+
+
+@router.get("/api/v2/today/summary")
+def today_summary(user_id: str = Depends(require_user)):
+    return pack(summary.today(user_id), mock=False)
+
+
+@router.post("/api/v2/progress")
+def advance_progress(body: LectureBody, user_id: str = Depends(require_user)):
+    return pack(service.advance(user_id, body.unit_no), mock=False)
+
+
+@router.post("/api/v2/lecture")
+def unit_lecture(body: LectureBody, user_id: str = Depends(require_user)):
+    outline_id = lecture.current_outline_id(user_id)
+    if not outline_id:
+        raise HTTPException(409, "还没有确认大纲")
+    try:
+        data, mock = lecture.generate(user_id, outline_id, body.unit_no, {})
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+    return pack(data, mock=mock)
+
+
 def _pack_outline(data):
     return pack(data, mock=data.get("mock", False))
+
+
+@router.get("/api/v2/outline/current")
+def current_outline(user_id: str = Depends(require_user)):
+    data = service.current(user_id)
+    return pack({"outline": data}, mock=bool(data and data["mock"]))
 
 
 @router.post("/api/v2/outline/draft")
@@ -78,6 +117,18 @@ def assessment_start(user_id: str = Depends(require_user)):
 @router.post("/api/v2/assessment/{assessment_id}/submit")
 def assessment_submit(assessment_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
     report, mock = assessment.submit(user_id, assessment_id, body.answers)
+    return pack(report, mock=mock)
+
+
+@router.post("/api/v2/exam/start")
+def exam_start(user_id: str = Depends(require_user)):
+    data = exam.start(user_id)
+    return pack(data, mock=bool(data.get("mock")))
+
+
+@router.post("/api/v2/exam/{exam_id}/submit")
+def exam_submit(exam_id: str, body: AssessmentSubmitBody, user_id: str = Depends(require_user)):
+    report, mock = exam.submit(user_id, exam_id, body.answers)
     return pack(report, mock=mock)
 
 
