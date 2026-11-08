@@ -15,7 +15,7 @@
 
 ## 线上环境变量（名字；值见本机文件）
 
-密钥（从 `.env` / `.env.deploy` 读）：`DEEPSEEK_API_KEY` `DASHSCOPE_API_KEY` `KIMI_API_KEY` `AUTH_SECRET` `HARNESS_ID_HMAC_KEY` `SECRETS_FERNET_KEY` `DATABASE_URL` `SYSTEM_DATABASE_URL`
+密钥（从 `.env` / `.env.deploy` 读）：`DEEPSEEK_API_KEY` `DASHSCOPE_API_KEY` `KIMI_API_KEY` `AUTH_SECRET` `HARNESS_ID_HMAC_KEY` `SECRETS_FERNET_KEY` `DATABASE_URL` `SYSTEM_DATABASE_URL` `INVITE_CODES`
 
 固定值：`PORT=8080` `XIAOMAN_MVP=1` `XIAOMAN_V2=1` `XIAOMAN_DEMO_CLOCK=0` `PROACTIVE_ENABLED=0` `FEISHU_ENABLED=0` `FEISHU_WS_ENABLED=0` `OPENCLAW_WECHAT_ENABLED=0` `DATA_DIR=/app/data` `CORS_ALLOW_ORIGINS=<访问地址>` `LLM_CONFIG_JSON=<deploy/xiaoman/models.example.json 压成一行>`
 
@@ -47,5 +47,5 @@
 - **测试域名提示页**：浏览器第一次打开（及约 15 分钟后）会先看到腾讯云“页面访问提示”，点「确定访问」即可。只有绑定已备案的自有域名才能去掉。
 - **慢**：库在东京、服务在上海，每次查库约 80–100ms；首屏约 6 秒，完成卡等要 10 秒左右才出来。闲置后第一次访问还要等服务冷启动。
 - **重启会丢的**：调用轨迹 / 费用台账（audit.db）、闲聊的短期上下文（checkpoints.db）。学习数据、对话消息都在数据库里。
-- **谁拿到链接都能用**：没有邀请码，每个浏览器自动是一个新用户，会消耗模型额度。先只发给信任的试用者。
+- **邀请码登录**（2026-11-08 起）：有码才能进，一个码就是一个账号（可重复使用、不过期）。10 个码只在本机 `docs/邀请码（仅本机）.md` 和线上 `INVITE_CODES`，不进仓库（仓库公开）。
 - 曾出现 1 次“服务重启后浏览器被当成新用户”，之后 3 次重启都没复现，原因未查明，请试用时留意。
