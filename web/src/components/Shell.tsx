@@ -118,7 +118,12 @@ export function Shell() {
   // 开始一件新的事（讲解 / 考试 / 错题本）时，把它滚到眼前。
   useEffect(() => {
     if (activeLecture || activeExam || showMistakes || reviewLecture !== null || extraLecture !== null) {
-      activityRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // 只滚对话列表本身；不用 scrollIntoView，它会连外层容器一起滚，把顶栏和输入框挤走。
+      const stream = streamRef.current, target = activityRef.current;
+      if (stream && target) {
+        const top = target.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - 12;
+        stream.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
     }
   }, [activeLecture, activeExam, showMistakes, reviewLecture, extraLecture]);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -476,7 +481,7 @@ export function Shell() {
             <h2>我的资料</h2>
             {workspace.listError && <p role="alert" className="aux">{workspace.listError}</p>}
             {!workspace.notes.length && <p className="aux">{qa.sessionReady ? "先交一份 PDF，整理好的笔记会放在这里。" : "正在读取学习笔记……"}</p>}
-            <ul className="list-group">
+            {workspace.notes.length > 0 && <ul className="list-group">
               {workspace.notes.map((item) => (
                 <li key={item.id}>
                   <Button className="list-row" onClick={() => { workspace.openStored(item); setSourceReference(null); setTab("note"); setRail(false); }}>
@@ -486,7 +491,7 @@ export function Shell() {
                   </Button>
                 </li>
               ))}
-            </ul>
+            </ul>}
           </section>
         </aside>
         <main className={compact ? "chat compact" : "chat"}

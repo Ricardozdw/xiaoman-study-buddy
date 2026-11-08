@@ -640,36 +640,44 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
 .tools-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: #e5685c; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
 @media (max-width: 850px) { .tools-pop { width: min(260px, calc(100vw - 32px)); } }
 
-/* ===== 动态柔白背景：几团很淡的蓝/暖白光斑缓慢漂移（只动 transform，开销小；系统“减少动态效果”时静止） ===== */
-.chat { background: linear-gradient(180deg, #e6f0fa 0%, #f2f6fa 34%, #f7f7f6 70%, #f6f5f3 100%); isolation: isolate; }
-.chat::before, .chat::after { content: ""; position: absolute; inset: -25%; z-index: 0; pointer-events: none; will-change: transform; }
+/* ===== 动态背景「湖面晨雾」：跟小满的湖蓝主色走——湖青、薄荷、晨光米白三团雾光缓慢流动。
+   只动 transform / opacity，开销小；系统“减少动态效果”时静止。 */
+.chat {
+  background: linear-gradient(175deg, #dcecee 0%, #e9f3f1 30%, #f4f7f3 62%, #f8f7f1 100%);
+  isolation: isolate;
+  overflow: hidden;
+  overflow: clip; /* 光斑层比对话区大；clip 让它不能被“滚进视野”带着整页一起滚 */
+}
+.chat::before, .chat::after { content: ""; position: absolute; inset: -30%; z-index: 0; pointer-events: none; will-change: transform, opacity; }
 .chat::before {
   background:
-    radial-gradient(38% 30% at 18% 12%, #cfe3f6 0%, #cfe3f600 70%),
-    radial-gradient(34% 28% at 82% 18%, #fbeadb 0%, #fbeadb00 70%),
-    radial-gradient(42% 36% at 55% 88%, #e4eef9 0%, #e4eef900 70%);
-  animation: xm-drift-a 26s ease-in-out infinite alternate;
+    radial-gradient(30% 26% at 22% 16%, #a9d4dbcc 0%, #a9d4db00 72%),
+    radial-gradient(28% 24% at 78% 30%, #c4e8d6bb 0%, #c4e8d600 72%),
+    radial-gradient(34% 30% at 46% 82%, #b9dbe8aa 0%, #b9dbe800 72%);
+  animation: xm-lake-a 16s ease-in-out infinite alternate;
 }
 .chat::after {
   background:
-    radial-gradient(30% 26% at 72% 6%, #d9e9f8 0%, #d9e9f800 70%),
-    radial-gradient(36% 30% at 8% 62%, #fdf1e6 0%, #fdf1e600 70%);
-  opacity: .85;
-  animation: xm-drift-b 34s ease-in-out infinite alternate;
+    radial-gradient(26% 22% at 70% 10%, #f3ead0cc 0%, #f3ead000 72%),
+    radial-gradient(30% 26% at 12% 64%, #cfe9e3bb 0%, #cfe9e300 72%);
+  animation: xm-lake-b 22s ease-in-out infinite alternate;
 }
 .chat > * { position: relative; z-index: 1; }
 .chat > .chat-top { position: absolute; z-index: 3; }
-@keyframes xm-drift-a {
+@keyframes xm-lake-a {
   0% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(5%, 4%, 0) scale(1.08); }
-  100% { transform: translate3d(-4%, 6%, 0) scale(1.03); }
+  33% { transform: translate3d(11%, 6%, 0) scale(1.14); }
+  66% { transform: translate3d(-7%, 11%, 0) scale(.94); }
+  100% { transform: translate3d(5%, -7%, 0) scale(1.08); }
 }
-@keyframes xm-drift-b {
-  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .65; }
-  50% { transform: translate3d(-6%, 3%, 0) rotate(8deg); opacity: .95; }
-  100% { transform: translate3d(4%, -3%, 0) rotate(-6deg); opacity: .75; }
+@keyframes xm-lake-b {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: .55; }
+  50% { transform: translate3d(-12%, 6%, 0) rotate(14deg); opacity: 1; }
+  100% { transform: translate3d(8%, -8%, 0) rotate(-10deg); opacity: .7; }
 }
 @media (prefers-reduced-motion: reduce) { .chat::before, .chat::after { animation: none; } .attn-card { animation: none; } }
+/* 左栏跟背景同一色系，淡一点 */
+.rail { background: linear-gradient(180deg, #eef5f4 0%, #f4f6f5 100%); }
 
 /* 压过旧的 .companion h1 / .companion > p（小满名字的样式），否则首屏标题只有 18px */
 .companion.hero .hero-title { font-size: 30px; margin: 6px 0 0; font-weight: 600; line-height: 1.35; }
