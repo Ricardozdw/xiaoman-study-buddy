@@ -115,19 +115,43 @@ export function Shell() {
   const [settings, setSettings] = useState(false);
   const [tools, setTools] = useState(false);
   const activityRef = useRef<HTMLDivElement>(null);
-  // 开始一件新的事（讲解 / 考试 / 错题本）时，把它滚到眼前。
+  // 打开一张卡（错题本 / 讲解 / 考试 / 重看 / 接着练）时，定位到“这一张”的开头，停在顶栏下面。
+  // 卡片内容是异步出来的（“正在准备” → 正文），头 2 秒里高度变了就再对齐一次；用户自己滚了就不再跟。
+  const [focus, setFocus] = useState<{ key: string; n: number } | null>(null);
+  const focusOn = (key: string) => setFocus({ key, n: Date.now() });
+  useEffect(() => { if (showMistakes) focusOn("mistakes"); }, [showMistakes]);
+  useEffect(() => { if (activeExam) focusOn("exam"); }, [activeExam]);
+  useEffect(() => { if (activeLecture) focusOn("lecture"); }, [activeLecture]);
+  useEffect(() => { if (reviewLecture !== null) focusOn("review"); }, [reviewLecture]);
+  useEffect(() => { if (extraLecture !== null) focusOn("extra"); }, [extraLecture]);
   useEffect(() => {
-    if (activeLecture || activeExam || showMistakes || reviewLecture !== null || extraLecture !== null) {
-      // 只滚对话列表本身；不用 scrollIntoView，它会连外层容器一起滚，把顶栏和输入框挤走。
-      const stream = streamRef.current, target = activityRef.current;
-      if (stream && target) {
-        // 顶栏是浮在对话上面的一层，停的位置要让开它的高度。
-        const bar = (document.querySelector(".chat-top") as HTMLElement | null)?.offsetHeight ?? 0;
-        const top = target.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - bar - 8;
-        stream.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-      }
-    }
-  }, [activeLecture, activeExam, showMistakes, reviewLecture, extraLecture]);
+    const stream = streamRef.current;
+    if (!focus || !stream) return;
+    let userMoved = false;
+    const stop = () => { userMoved = true; };
+    const align = (smooth: boolean) => {
+      const target = stream.querySelector<HTMLElement>(`[data-focus="${focus.key}"]`);
+      if (!target || userMoved) return;
+      // 只滚对话列表本身（不用 scrollIntoView，它会连外层一起滚）；让开浮在上面的顶栏。
+      const bar = (document.querySelector(".chat-top") as HTMLElement | null)?.offsetHeight ?? 0;
+      const top = target.getBoundingClientRect().top - stream.getBoundingClientRect().top + stream.scrollTop - bar - 8;
+      stream.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+    };
+    const frame = requestAnimationFrame(() => align(true));
+    const target = stream.querySelector<HTMLElement>(`[data-focus="${focus.key}"]`);
+    const observer = target && typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => align(false)) : null;
+    if (observer && target) observer.observe(target);
+    const done = window.setTimeout(() => observer?.disconnect(), 2000);
+    stream.addEventListener("wheel", stop, { passive: true });
+    stream.addEventListener("touchmove", stop, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(done);
+      observer?.disconnect();
+      stream.removeEventListener("wheel", stop);
+      stream.removeEventListener("touchmove", stop);
+    };
+  }, [focus]);
   const streamRef = useRef<HTMLDivElement>(null);
 
   // 首屏（日期 + 状态 + 关注卡）是对话流的一部分，跟着一起滚；滚过它之后顶部收成一条。
@@ -319,7 +343,13 @@ export function Shell() {
     setRail(false);
     setDoneNote("");
     // 已经在做这一件：回到它，不重新开始（练习不会再出一组新题）。
-    if (task.id === inProgress || task.id === activeLecture?.taskId) { scrollToBottom(); return; }
+    if (task.id === inProgress || task.id === activeLecture?.taskId) {
+      if (task.id === activeLecture?.taskId) focusOn("lecture");
+      else if (task.kind === "exam" && activeExam) focusOn("exam");
+      else if (resumeQuiz && task.kind === "practice") focusOn("resume");
+      else scrollToBottom();
+      return;
+    }
     setInProgress(task.id);
     if (task.kind === "learn" && task.ref?.source === "lecture") setActiveLecture({ unitNo: task.ref.lecture_no!, taskId: task.id });
     else if (task.kind === "learn" && task.ref?.lecture_id) { setPinnedUpload(task.ref.lecture_id); materials.current?.chooseFile(); }
@@ -372,7 +402,8 @@ export function Shell() {
   const hero = headline(attnInput);
   const attention = source === "loading" ? [] : attentionItems(attnInput);
   function onAttention(item: AttnItem) {
-    if (item.action === "summary" || item.action === "resume") { scrollToBottom(); return; }
+    if (item.action === "resume") { focusOn("resume"); return; }
+    if (item.action === "summary") { focusOn("summary"); return; }
     const task = plan.tasks.find((row) => row.id === item.taskId);
     if (task && canStart(task)) startTask(task);
     else if (task) setRail(true);
@@ -449,7 +480,7 @@ export function Shell() {
           )}
           {outline && !goalDone && mistakeCount !== null && (
             <div className="rail-section">
-              <Button className="list-row" onClick={() => { setShowMistakes(true); setRail(false); }}>
+              <Button className="list-row" onClick={() => { setShowMistakes(true); focusOn("mistakes"); setRail(false); }}>
                 <span className="grow">错题本</span>
                 <span className="aux">{mistakeCount ? `${mistakeCount} 题没做对` : "暂无"}</span>
               </Button>
@@ -525,7 +556,7 @@ export function Shell() {
             {tools && (
               <div className="tools-pop" role="menu" aria-label="更多">
                 {outline && !goalDone && <button type="button" role="menuitem" onClick={() => { setTools(false); setTab("path"); }}><Icon name="path" /><span className="grow">学习路径</span><span className="aux">{Math.min(learnedUpTo, outline.units.length)} / {outline.units.length} 讲</span></button>}
-                {outline && !goalDone && mistakeCount !== null && <button type="button" role="menuitem" onClick={() => { setTools(false); setShowMistakes(true); }}><Icon name="pen" /><span className="grow">错题本</span>{mistakeCount ? <span className="tools-count">{mistakeCount}</span> : <span className="aux">暂无</span>}</button>}
+                {outline && !goalDone && mistakeCount !== null && <button type="button" role="menuitem" onClick={() => { setTools(false); setShowMistakes(true); focusOn("mistakes"); }}><Icon name="pen" /><span className="grow">错题本</span>{mistakeCount ? <span className="tools-count">{mistakeCount}</span> : <span className="aux">暂无</span>}</button>}
                 <button type="button" role="menuitem" aria-label="打开学习文档" onClick={() => { setTools(false); materials.current?.openNote(); }}><Icon name="book" /><span className="grow">学习文档</span></button>
                 <button type="button" role="menuitem" disabled={!materialsReady} onClick={() => { setTools(false); setPinnedUpload(uploadLectureId); materials.current?.chooseFile(); }}><Icon name="file" /><span className="grow">交课件</span><span className="aux">PDF</span></button>
               </div>
@@ -608,7 +639,7 @@ export function Shell() {
             {justAccepted && planOpening}
             <div className="activity" ref={activityRef}>
             {resumeQuiz && (
-              <section aria-label="接着做练习">
+              <section aria-label="接着做练习" data-focus="resume">
                 <p className="done-note" role="status">上次的练习还没做完，接着来。</p>
                 <QaHandoff handoff={{ intent: "quiz", data: resumeQuiz }} onPlanChange={setPlan} onNextTask={() => { setResumeQuiz(null); void startNext(); }} />
               </section>
@@ -622,21 +653,22 @@ export function Shell() {
               </Card>
             )}
             {v2Enabled && <V2Cards doneCount={doneCount} examInPlan={examInPlan} allLearned={allLearned} />}
-            {showMistakes && <MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} />}
-            {activeExam && <ExamCard onDone={() => { setActiveExam(false); setDoneNote(""); setMistakeTick((n) => n + 1); void refreshStudy(); }} />}
+            {/* 完成卡在前；用户刚打开的东西排在它后面（最新的在最下面，并且会自动定位过去） */}
             {v2Enabled && outline && !goalDone && allDoneToday && !activeLecture && !activeExam && extraLecture === null && (
-              <DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} />
+              <div data-focus="summary"><DaySummaryCard refreshKey={`${plan.date}-${learnedUpTo}`} next={nextExtra} busy={!qa.sessionReady} onNext={setExtraLecture} /></div>
             )}
             {reviewLecture !== null && (
-              <LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} />
+              <div data-focus="review"><LectureCard key={`review-${reviewLecture}`} unitNo={reviewLecture} doneLabel="看完了" onDone={() => setReviewLecture(null)} /></div>
             )}
             {extraLecture !== null && (
-              <LectureCard unitNo={extraLecture} doneLabel="学完了" onDone={() => {
+              <div data-focus="extra"><LectureCard unitNo={extraLecture} doneLabel="学完了" onDone={() => {
                 void advanceProgress(extraLecture).then(async () => { setOutline(await getCurrentOutline()); setExtraLecture(null); });
-              }} />
+              }} /></div>
             )}
+            {showMistakes && <div data-focus="mistakes"><MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} /></div>}
+            {activeExam && <div data-focus="exam"><ExamCard onDone={() => { setActiveExam(false); setDoneNote(""); setMistakeTick((n) => n + 1); void refreshStudy(); }} /></div>}
             {activeLecture && (
-              <LectureCard unitNo={activeLecture.unitNo} onDone={() => void finishLecture(activeLecture.taskId, activeLecture.unitNo)} />
+              <div data-focus="lecture"><LectureCard unitNo={activeLecture.unitNo} onDone={() => void finishLecture(activeLecture.taskId, activeLecture.unitNo)} /></div>
             )}
             </div>
             {doneNote && <p className="done-note" role="status"><Icon name="check" />{doneNote}</p>}
