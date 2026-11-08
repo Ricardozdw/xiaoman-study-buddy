@@ -53,7 +53,7 @@ export function CitedText({ answer, onReference }: { answer: Answer; onReference
 // 只有真正由模型回答的内容才标“AI 整理”、才收👍👎；定目标的固定提问、打开练习的提示不标。
 const AI_INTENTS = new Set(["qa", "chat"]);
 
-export function QaAnswer({ answer, onReference, onPlanChange, onQuickReply, onNextTask, onGoalAccepted, active = true }: { answer: Answer; onReference: (ref: Reference) => void; onPlanChange?: (plan: PlanToday) => void; onQuickReply?: (text: string) => void; onNextTask?: () => void; onGoalAccepted?: () => void; active?: boolean }) {
+export function QaAnswer({ answer, onReference, onPlanChange, onQuickReply, onNextTask, onGoalAccepted, onRetry, active = true }: { answer: Answer; onReference: (ref: Reference) => void; onPlanChange?: (plan: PlanToday) => void; onQuickReply?: (text: string) => void; onNextTask?: () => void; onGoalAccepted?: () => void; onRetry?: () => void; active?: boolean }) {
   const [rating, setRating] = useState<"up" | "down" | null>(null);
   const [reason, setReason] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
@@ -72,11 +72,13 @@ export function QaAnswer({ answer, onReference, onPlanChange, onQuickReply, onNe
   const intent = answer.handoff?.intent || answer.intent || "qa";
   const aiMade = AI_INTENTS.has(intent);
   if (intent === "notice") return <p className="done-note" role="status">{answer.text}</p>;
-  return <div aria-label="小满回答" className="answer"><Bubble role="xiaoman">
+  // 失败了且一个字都没出来：不留空气泡，只给一句说明 + “再试一次”。
+  const empty = !answer.text.trim();
+  return <div aria-label="小满回答" className="answer">{!(empty && answer.status !== "streaming") && <Bubble role="xiaoman">
     {aiMade && answer.status === "done" && <span className="ai-tag">AI 整理</span>}{aiMade && answer.mock && <Badge sim>模拟</Badge>}
-    <CitedText answer={answer} onReference={onReference} /></Bubble>
-    {answer.status === "streaming" && <p className="aux" role="status">正在回答…</p>}
-    {answer.error && <p role="alert">{answer.error}</p>}
+    <CitedText answer={answer} onReference={onReference} /></Bubble>}
+    {answer.status === "streaming" && <p className="aux" role="status">{empty ? "小满在想…" : "正在回答…"}</p>}
+    {answer.error && <div className="answer-error" role="alert">{empty && answer.mock && <Badge sim>模拟</Badge>}<span>{answer.error}</span>{onRetry && active && <Button onClick={onRetry}>再试一次</Button>}</div>}
     {answer.references.length > 0 && <div className="btns">{answer.references.map((ref, i) => <Button key={i} type="button" onClick={() => onReference(ref)}>【第 {ref.page} 页】原句</Button>)}</div>}
     {aiMade && answer.status === "done" && answer.messageId && <div className="feedback-row" aria-label="回答反馈">
       <Button type="button" disabled={saving || rating === "up"} aria-label="赞同回答" onClick={() => void feedback("up")}>👍</Button>

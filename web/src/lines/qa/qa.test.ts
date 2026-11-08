@@ -253,3 +253,11 @@ it("remembers today's open quiz and resumes at the first unanswered question",as
   expect(html).toContain('第二题');expect(html).not.toContain('第一题');expect(html).toContain('第 2 / 2 题');
   vi.unstubAllGlobals();
 });
+
+it("failed answers with no text show no empty bubble and offer a retry",()=>{
+  const answer={...emptyAnswer("f"),status:"error" as const,error:"这次回答没有完成，请稍后重试。"};
+  let retried=0;
+  const html=renderToStaticMarkup(createElement(QaAnswer,{answer,onReference:()=>{},onRetry:()=>{retried++;}}));
+  expect(html).not.toContain('class="bubble');expect(html).toContain("再试一次");expect(html).toContain("请稍后重试");
+  expect(retried).toBe(0);
+});

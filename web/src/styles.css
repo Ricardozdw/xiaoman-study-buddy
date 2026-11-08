@@ -711,3 +711,9 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .stream { width: 100%; padding: 64px 18px 17px; }
   .hero .hero-title { font-size: 25px; }
 }
+.answer-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding: 10px 14px; border-radius: 12px; background: #fbefed; color: #8a3a31; font-size: 14px; }
+/* 手机上 @ 选讲只留一个“@”小按钮（点它仍弹出讲次列表），不挤输入框 */
+@media (max-width: 850px) {
+  .lecture-pill { position: relative; flex: 0 0 36px; width: 36px; max-width: 36px; padding: 0; justify-content: center; font-weight: 600; }
+  .lecture-pill select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
+}

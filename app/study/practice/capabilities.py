@@ -1,6 +1,7 @@
 """版本化出题/换问法 + 盲答自检；只经底座网关调用模型。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -13,7 +14,7 @@ from app.gateway.llm_gateway import ModelTier, chat_json, has_llm
 from app.prompts import load_prompt
 from app.study.common.bad_cases import write_bad_case
 from app.study.common.models import LlmCall
-from app.study.practice.schemas import CheckedQuiz, GeneratedQuestion, GeneratedQuiz
+from app.study.practice.schemas import CheckedQuiz, GeneratedQuestion, GeneratedQuiz, Option
 from app.tools.prompt_data import UNTRUSTED_DATA_RULE
 
 VERSION = "v1"
@@ -39,7 +40,8 @@ def _call(user_id: str, name: str, payload: dict, output_type, *, fast=False):
         with step_context(user_id=user_id, capability=name) as context:
             try:
                 raw = chat_json(system, user, tier=ModelTier.FAST if fast else ModelTier.STRONG,
-                                timeout=12, max_tokens=4500 if not fast else 600)
+                                # 出题走强档：评测里 p90 约 11.4s，12s 上限在真实使用中常超时；改 30s（与大纲生成一致）。
+                                timeout=12 if fast else 30, max_tokens=4500 if not fast else 600)
                 if raw.get("error") or raw.get("_parse") or raw.get("_mode") in ("mock", "mock_fallback"):
                     raise PracticeError("模型暂时不可用，请稍后重试")
                 data = {k: v for k, v in raw.items() if not k.startswith("_")}
@@ -92,6 +94,22 @@ def mock_questions(pages: list[dict], count: int, difficulty: str, original: dic
             difficulty=difficulty, knowledge_point=point,
         ))
     return result
+
+
+def balance_answer(q: GeneratedQuestion) -> GeneratedQuestion:
+    """模型出的单选题正确答案大多在 A（实测约八成），用户只选 A 就能拿高分。
+    这里用题干的哈希决定正确答案落在哪一位（同一道题永远一样，整体在 A–D 上均匀），
+    其余选项保持原来的相对顺序，再按位置重新编号。解析里不引用选项字母，不受影响。"""
+    texts = [o.text for o in q.options]
+    letters = [o.id for o in q.options]
+    if q.answer not in letters or len(texts) < 2:
+        return q
+    right = texts[letters.index(q.answer)]
+    others = [t for i, t in enumerate(texts) if letters[i] != q.answer]
+    target = int(hashlib.sha256(compact(q.stem).encode("utf-8")).hexdigest(), 16) % len(texts)
+    order = others[:target] + [right] + others[target:]
+    ids = ["A", "B", "C", "D"][:len(order)]
+    return q.model_copy(update={"options": [Option(id=i, text=t) for i, t in zip(ids, order)], "answer": ids[target]})
 
 
 def generate(user_id: str, lecture_id: str, pages: list[dict], count: int, difficulty: str,
@@ -154,4 +172,5 @@ def generate(user_id: str, lecture_id: str, pages: list[dict], count: int, diffi
                            severity="高", prompt_version=f"{name}@{PROMPT_VERSIONS[name]}")
     if not accepted:
         raise PracticeError("题目自检没有通过，请重试")
-    return accepted, False
+    # 盲答自检通过后再打散正确答案的位置（自检看的是模型原样输出）。
+    return [balance_answer(q) for q in accepted], False

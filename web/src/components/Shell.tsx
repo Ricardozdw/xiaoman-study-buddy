@@ -141,15 +141,18 @@ export function Shell() {
     const target = stream.querySelector<HTMLElement>(`[data-focus="${focus.key}"]`);
     const observer = target && typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => align(false)) : null;
     if (observer && target) observer.observe(target);
-    const done = window.setTimeout(() => observer?.disconnect(), 2000);
+    // 讲解 / 考试要 7–15 秒才出来：跟到内容出来为止（最多 25 秒），用户自己滚了就停。
+    const done = window.setTimeout(() => observer?.disconnect(), 25000);
     stream.addEventListener("wheel", stop, { passive: true });
     stream.addEventListener("touchmove", stop, { passive: true });
+    stream.addEventListener("keydown", stop);
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(done);
       observer?.disconnect();
       stream.removeEventListener("wheel", stop);
       stream.removeEventListener("touchmove", stop);
+      stream.removeEventListener("keydown", stop);
     };
   }, [focus]);
   const streamRef = useRef<HTMLDivElement>(null);
@@ -212,6 +215,12 @@ export function Shell() {
     void getTodaySummary().then((data) => { if (!cancelled && data) setTotalDays(data.total_days); });
     return () => { cancelled = true; };
   }, [v2Enabled, plan.needs_setup, plan.tasks.filter((task) => task.status === "done").length]);
+
+  // 练习没出来（回答失败）：左栏不再显示“进行中”，再点就能重新出题。
+  const lastAnswer = qa.messages.at(-1);
+  useEffect(() => {
+    if (lastAnswer?.role === "assistant" && lastAnswer.status === "error") setInProgress(null);
+  }, [lastAnswer?.id, lastAnswer?.status]);
 
   // 只在刚打开页面时查一次：今天有没做完的练习组。
   const resumeChecked = useRef(false);
@@ -384,8 +393,14 @@ export function Shell() {
   const nextExtra = nextUnit ? { no: nextUnit.no ?? learnedUpTo + 1, title: nextUnit.title } : null;
   const currentId = plan.tasks.find((task) => task.status !== "done")?.id;
   const nextTask = plan.tasks.find((task) => task.status !== "done");
-  // 只有自己交过两份以上课件时，@ 选讲次才有意义；AI 大纲各讲同名，不放进来。
-  const realLectures = availableLectures.filter((item) => !item.mock && !isOutlineFilename(item.title));
+  // @ 选讲：AI 大纲的各讲在接口里同名，这里换成“第 N 讲 · 单元标题”；可选的讲有两讲以上才显示。
+  // （小满回答里会提示“请用 @ 选讲”，所以有多讲时入口必须在。）
+  const realLectures = availableLectures.filter((item) => !item.mock).map((item) => {
+    if (!isOutlineFilename(item.title)) return item;
+    const no = Number(/^lec-(\d+)$/.exec(item.id)?.[1] || 0);
+    const unit = outline?.units.find((row, index) => (row.no ?? index + 1) === no);
+    return { ...item, title: unit ? `第 ${no} 讲 · ${unit.title}` : `第 ${no} 讲` };
+  }).sort((a, b) => Number(/\d+/.exec(a.id)?.[0] || 0) - Number(/\d+/.exec(b.id)?.[0] || 0));
   const planOpening = <>
     {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} hideDoneCard={v2Enabled === true} />}
     {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
@@ -625,7 +640,7 @@ export function Shell() {
                 {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
                   <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
                 )}
-                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onRetry={() => { const prev = conversationWithMaterials.slice(0, index).reverse().find((item) => item.kind === "qa" && item.answer.role === "user"); if (prev && prev.kind === "qa") void qa.send(prev.answer.text); }} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
               </Fragment>
             ) : (
               <Fragment key={entry.turn.id}>
