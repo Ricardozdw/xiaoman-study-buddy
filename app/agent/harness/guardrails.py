@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.agent.harness import context as trace_ctx
@@ -86,7 +87,9 @@ def guard_text(text: str, *, user_id: str, inputs: tuple[str, ...] = (), where: 
     """Leak-guard one string and record hits on the current trace step."""
     try:
         res = scan_output(text or "", user_id=user_id, profile=profile, inputs=inputs, strict=True)
-    except Exception:
+    except Exception as exc:
+        # 检查本身出错时按“拦截”处理（宁可不发也不泄露），但要留下原因：只记异常类型和位置，不记内容。
+        logging.getLogger("harness.guardrails").warning("leak guard error at %s: %s", where, type(exc).__name__)
         res = {"text": PROMPT_LEAK_REPLY, "hits": [{"type": "guard_error", "count": 1}], "blocked": True}
     for h in res["hits"]:
         trace_ctx.record_guardrail({"guardrail": "no_leak", **h, "where": where, "blocked": res["blocked"]})

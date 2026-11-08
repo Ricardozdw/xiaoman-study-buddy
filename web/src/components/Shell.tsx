@@ -249,28 +249,40 @@ export function Shell() {
     });
   }, [v2Enabled]);
 
+  // 今天的安排：只在会话就绪时取一次，不跟着讲次变化重取（线上每次要 2–3 秒）。
   useEffect(() => {
-    setPageText("");
-    setPageLoading(qa.sessionReady && Boolean(effectiveLectureId));
     if (!qa.sessionReady) return;
     let cancelled = false;
     (async () => {
-      const [planRes, boardRes, pageRes, permRes] = await Promise.all([
+      const [planRes, boardRes, permRes] = await Promise.all([
         api<PlanToday>("/api/plan/today"),
         api<Dashboard>("/api/dashboard?range=week"),
-        effectiveLectureId ? api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${encodeURIComponent(effectiveLectureId)}/pages`) : Promise.resolve({ source: "api" as const, envelope: { data: { pages: [] } } }),
         api<Permissions>("/api/me/permissions"),
       ]);
       if (cancelled) return;
-      const fromApi = [planRes, boardRes, pageRes, permRes].every((item) => item.source === "api");
+      const fromApi = [planRes, boardRes, permRes].every((item) => item.source === "api");
       setSource(fromApi ? "api" : "mock");
       setPlan(planRes.envelope.data);
       setBoard(boardRes.envelope.data);
       setPermissions(permRes.envelope.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [qa.sessionReady]);
+
+  // 当前讲的原文：讲次变了才重取，和今天的安排互不等待。
+  useEffect(() => {
+    setPageText("");
+    setPageLoading(qa.sessionReady && Boolean(effectiveLectureId));
+    if (!qa.sessionReady || !effectiveLectureId) return;
+    let cancelled = false;
+    void api<{ pages: { page: number; text: string }[] }>(`/api/lectures/${encodeURIComponent(effectiveLectureId)}/pages`).then((pageRes) => {
+      if (cancelled) return;
       const pages = pageRes.envelope.data.pages || [];
       setPageText(pages.map((item) => `【第 ${item.page} 页】${item.text}`).join("\n\n"));
       setPageLoading(false);
-    })();
+    });
     return () => {
       cancelled = true;
     };
@@ -405,7 +417,8 @@ export function Shell() {
     {source === "api" && !waitForV2 && plan.needs_setup !== true && <PlanLine inChat showDemo={DEV} hideDoneCard={v2Enabled === true} />}
     {source === "api" && v2Enabled === true && plan.needs_setup !== true && <AcceptedOutlineBar today={plan.date} />}
   </>;
-  const [, monthNum = "", dayNum = ""] = /^\d{4}-(\d{2})-(\d{2})$/.exec(plan.date) || [];
+  const localToday = new Date().toLocaleDateString("sv-SE");
+  const [, monthNum = "", dayNum = ""] = /^\d{4}-(\d{2})-(\d{2})$/.exec(source === "loading" ? localToday : plan.date) || [];
   const attnInput = {
     needsGoal: needsGoal || (source === "api" && v2Enabled === true && plan.needs_setup === true),
     goalDone,
@@ -414,7 +427,9 @@ export function Shell() {
     resumeLectureNo: resumeQuiz ? plan.tasks.find((task) => task.kind === "practice" && task.status !== "done")?.ref?.lecture_no ?? null : null,
     totalDays,
   };
-  const hero = headline(attnInput);
+  // 首次加载要几秒（线上库在东京），这期间 plan 还是内置样例：不能把样例当成用户的安排显示出来。
+  const loading = source === "loading";
+  const hero = loading ? { title: "正在准备今天的安排…", sub: "小满在整理你的进度，稍等一下" } : headline(attnInput);
   const attention = source === "loading" ? [] : attentionItems(attnInput);
   function onAttention(item: AttnItem) {
     if (item.action === "resume") { focusOn("resume"); return; }
@@ -437,7 +452,7 @@ export function Shell() {
           <div className="rail-title">
             <h2>今天</h2>
             <span className="count">
-              {goalDone ? "已完成" : needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
+              {loading ? "…" : goalDone ? "已完成" : needsGoal ? "0 / 0" : `${doneCount} / ${plan.tasks.length}`}
             </span>
           </div>
           <div className="seg" role="group" aria-label="今天的强度">
@@ -448,9 +463,11 @@ export function Shell() {
             ))}
           </div>
           <p className="rail-caption">
-            约 {plan.minutes} 分钟{totalDays > 0 ? ` · 累计学了 ${totalDays} 天` : ""}
+            {loading ? "　" : `约 ${plan.minutes} 分钟${totalDays > 0 ? ` · 累计学了 ${totalDays} 天` : ""}`}
           </p>
-          {goalDone ? (
+          {loading ? (
+            <div className="rail-empty" role="status"><p>正在读取今天的安排…</p></div>
+          ) : goalDone ? (
             <div className="rail-empty">
               <p>{GOAL_DONE_RAIL}</p>
               <Button variant="primary" onClick={() => setNextGoalHint(true)}>定下一个目标</Button>
@@ -576,7 +593,7 @@ export function Shell() {
                 <button type="button" role="menuitem" disabled={!materialsReady} onClick={() => { setTools(false); setPinnedUpload(uploadLectureId); materials.current?.chooseFile(); }}><Icon name="file" /><span className="grow">交课件</span><span className="aux">PDF</span></button>
               </div>
             )}
-            {compact && !needsGoal && !goalDone && plan.tasks.length > 0 && (
+            {compact && !loading && !needsGoal && !goalDone && plan.tasks.length > 0 && (
               <div className="today-bar" aria-label="今天的进度">
                 <button type="button" className="today-bar-info" onClick={() => setRail(true)}>
                   <span className="today-bar-count">今天 {doneCount}/{plan.tasks.length}</span>

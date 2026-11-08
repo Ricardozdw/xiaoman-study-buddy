@@ -250,3 +250,16 @@ def test_direct_goal_edit_keeps_progress(client, auth):
     ).json()["data"]
     assert saved["card_type"] == "goal" and saved["learned_up_to"] == 6
     assert saved["chosen"]["lecture_count"] is True
+
+
+def test_seed_twice_is_harmless_when_rows_already_exist(monkeypatch):
+    """并发首次访问：第二个请求在“检查后、写入前”被另一个请求抢先写入时，不能报 500。"""
+    from uuid import uuid4
+    from app.study.common import store
+    from app.study.common.models import PlanDay
+    user = f"seed-race-{uuid4().hex}"
+    store.seed(user)
+    # 模拟“检查时还没有”：让存在性检查查不到，第二次写入就会撞主键
+    real_select = store.select
+    monkeypatch.setattr(store, "select", lambda *a, **k: real_select(PlanDay.id).where(PlanDay.user_id == "__nobody__"))
+    store.seed(user)  # 不抛异常即通过

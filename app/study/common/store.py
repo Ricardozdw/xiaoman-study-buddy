@@ -9,6 +9,7 @@ from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.data_access.session import SessionLocal
 from app.study.common.db import ensure_schema
@@ -264,7 +265,12 @@ def seed(user_id: str) -> None:
             )
         )
         session.add(UserSetting(user_id=user_id, permissions_json="{}", permissions_chosen=0))
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # 新用户第一次打开页面会同时发好几个请求，都发现“还没有样例”就都去写。
+            # SQLite 写入天然排队不会撞；Postgres 会撞主键。撞了说明另一个请求已经写好了，回滚即可。
+            session.rollback()
 
 
 def _loads(raw: str, default: Any) -> Any:
