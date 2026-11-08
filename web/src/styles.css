@@ -717,3 +717,15 @@ button.list-row:hover, label.list-row:hover { background: #eef3f6; }
   .lecture-pill { position: relative; flex: 0 0 36px; width: 36px; max-width: 36px; padding: 0; justify-content: center; font-weight: 600; }
   .lecture-pill select { position: absolute; inset: 0; width: 100%; max-width: none; opacity: 0; }
 }
+
+/* ===== 邀请码登录 ===== */
+.invite-gate { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: linear-gradient(180deg, #f1f8fa 0%, #f8fbfb 45%, #ffffff 100%); }
+.invite-card { width: min(380px, 100%); display: grid; justify-items: center; gap: 12px; padding: 32px 24px 26px; border-radius: 24px; background: #ffffffd9; box-shadow: 0 12px 40px #3a61701a, 0 0 0 1px #e6eef1; text-align: center; }
+.invite-card .avatar { width: 88px; height: 88px; }
+.invite-card h1 { margin: 4px 0 0; font-size: 22px; font-weight: 600; color: var(--xm-ink); }
+.invite-card .aux { margin: 0; }
+.invite-card input { width: 100%; height: 48px; padding: 0 16px; border: 1px solid #d8e3e8; border-radius: 14px; background: #fff; font-size: 17px; letter-spacing: 1px; text-align: center; text-transform: uppercase; color: var(--xm-ink); }
+.invite-card input:focus { outline: 2px solid #9cc3d3; outline-offset: 1px; border-color: transparent; }
+.invite-card .btn { width: 100%; min-height: 46px; }
+.invite-error { margin: 0; color: var(--xm-wrong); font-size: 14px; }
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; }

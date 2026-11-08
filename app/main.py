@@ -90,17 +90,68 @@ def create_session(request: Request):
 
     if not auth_configured():
         raise HTTPException(503, detail={"code": "auth_not_configured", "message": "AUTH_SECRET 未配置，接口已关闭"})
-    uid = session_user(request) or new_anonymous_user_id()
-    resp = JSONResponse({"ok": True, "status": "session", "data": {"user_id": uid}})
+    from app.invite import invite_required
+
+    uid = session_user(request)
+    if not uid:
+        if invite_required():
+            # 开了邀请码：没有有效登录时不自动建用户，前端会显示输入邀请码。
+            return JSONResponse({"detail": {"code": "invite_required", "message": "请输入邀请码"}}, status_code=401)
+        uid = new_anonymous_user_id()
+    return _session_response(request, uid, {"user_id": uid})
+
+
+def _session_response(request: Request, uid: str, data: dict):
+    from fastapi.responses import JSONResponse
+    from app.auth import mint_user_token
+
+    resp = JSONResponse({"ok": True, "status": "session", "data": data})
     resp.set_cookie(
         SESSION_COOKIE,
         mint_user_token(uid),
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        # 云托管在 https 网关后面转发，应用看到的是 http；按网关转来的协议判断，线上要带 Secure。
+        secure=request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "") == "https",
         max_age=30 * 24 * 3600,
         path="/",
     )
+    return resp
+
+
+@app.post("/api/session/invite")
+async def login_with_invite(request: Request):
+    """用邀请码登录：一个码就是一个账号，可重复使用、不过期。码不写日志。"""
+    from fastapi.responses import JSONResponse
+    from app.auth import auth_configured
+    from app.invite import check, client_key, invite_required, record_failure, too_many_failures, user_for_code
+
+    if not auth_configured():
+        raise HTTPException(503, detail={"code": "auth_not_configured", "message": "AUTH_SECRET 未配置，接口已关闭"})
+    if not invite_required():
+        return JSONResponse({"detail": {"code": "invite_disabled", "message": "这里不需要邀请码"}}, status_code=400)
+    client = client_key({k.lower(): v for k, v in request.headers.items()}, request.client.host if request.client else "")
+    if too_many_failures(client):
+        return JSONResponse({"detail": {"code": "too_many_attempts", "message": "输错次数太多，请 10 分钟后再试"}}, status_code=429)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    code = str((body or {}).get("code") or "")[:64]
+    label = check(code)
+    if label is None:
+        record_failure(client)
+        return JSONResponse({"detail": {"code": "invite_invalid", "message": "邀请码不对，请核对后再试"}}, status_code=401)
+    uid = user_for_code(code)
+    return _session_response(request, uid, {"user_id": uid, "label": label})
+
+
+@app.post("/api/session/logout")
+def logout(request: Request):
+    from fastapi.responses import JSONResponse
+
+    resp = JSONResponse({"ok": True, "status": "logged_out", "data": {}})
+    resp.delete_cookie(SESSION_COOKIE, path="/")
     return resp
 
 
