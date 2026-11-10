@@ -264,3 +264,19 @@ def test_current_outline_follows_accept_undo_and_owner(api, owner, auth):
     assert api.get("/api/v2/outline/current", headers=other).json()["data"]["outline"] is None
     assert api.post(path + "/undo", headers=headers).status_code == 200
     assert api.get("/api/v2/outline/current", headers=headers).json()["data"]["outline"] is None
+
+
+def test_opened_before_goal_then_set_goal_has_no_return_card(api, owner, monkeypatch):
+    """邀请码先打开过、隔两天才定目标：定目标之前的打开不算中断，不出“今天先轻松一点”。"""
+    from datetime import timedelta
+    uid, headers = owner
+    api.get("/api/plan/today", headers=headers)  # 第一天只是打开看看
+    later = service.plan_service.today_for(uid) + timedelta(days=2)
+    monkeypatch.setattr(service.plan_service, "today_for", lambda _: later)
+    api.get("/api/plan/today", headers=headers)  # 两天后回来，还没定目标
+    data = draft(api, owner)
+    assert api.post(f'/api/v2/outline/{data["id"]}/accept', headers=headers).status_code == 200
+    today = api.get("/api/plan/today", headers=headers).json()["data"]
+    assert today["card"] is None
+    monkeypatch.setattr(service.plan_service, "today_for", lambda _: later + timedelta(days=1))
+    assert api.get("/api/plan/today", headers=headers).json()["data"]["card"] is None  # 第二天正常，也不出卡

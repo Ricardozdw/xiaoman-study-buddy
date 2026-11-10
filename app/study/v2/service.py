@@ -224,7 +224,9 @@ def accept(user_id, outline_id):
             goal.daily_minutes, goal.status = context["daily_minutes"], "active"
             intensity = "light" if goal.daily_minutes <= 20 else "normal" if goal.daily_minutes <= 40 else "sprint"
             goal.summary_json = _dump({"confirmed": True, "learned_up_to": 0, "default_intensity": intensity,
+                                       "goal_set_on": today,
                                        "v2": {"outline_id": row.id, "materials": "none"}})
+            plan_service.clear_return_cards(session, user_id)
             plan.intensity = intensity
             row.goal_id, row.status, row.updated_at = goal.id, "accepted", _now()
             stages = json.loads(row.stages_json)

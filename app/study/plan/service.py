@@ -380,6 +380,10 @@ def _return_context(session, user_id: str, today: date, last_open: Optional[date
     goal = session.scalar(select(Goal).where(Goal.user_id == user_id))
     summary = _loads(goal.summary_json, {}) if goal else {}
     floor = summary.get("review_floor")
+    # 定目标之前的打开不算：那时还没开始学，谈不上“中断回来”（V2 确认大纲时写 goal_set_on）。
+    set_on = str(summary.get("goal_set_on") or "")
+    if last_open is not None and set_on and last_open.isoformat() < set_on:
+        last_open = None
     return returning.ReturnContext(
         today=today,
         last_open=last_open,
@@ -461,6 +465,17 @@ def _add_card(session, user_id: str, day: str, kind: str, ctx: returning.ReturnC
     )
     session.add(row)
     return row
+
+
+def clear_return_cards(session, user_id: str) -> None:
+    """刚定好目标时调用：定目标之前排出来的“中断回来”卡作废（新目标还没开始，谈不上中断）。"""
+    rows = session.scalars(
+        select(AgentAction).where(AgentAction.user_id == user_id, AgentAction.status == "pending",
+                                  AgentAction.trigger == "return")
+    ).all()
+    for row in rows:
+        if _card_meta(row).get("plan_line"):
+            row.status = "expired"
 
 
 def _expire_old_cards(session, user_id: str, day: str) -> None:

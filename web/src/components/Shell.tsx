@@ -108,6 +108,8 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
   const [doneNote, setDoneNote] = useState("");
   // 在对话里刚确认大纲：今天的安排接在对话后面，不插到最上面。
   const [justAccepted, setJustAccepted] = useState(false);
+  // 确认大纲的那条回答在对话里的位置：确认后的计划卡 / 撤销条紧跟在它后面，后来的消息照常往下排。
+  const [acceptedIndex, setAcceptedIndex] = useState<number | null>(null);
   // 正在做的那一件（左栏显示“进行中”，再点只是回到它，不重新开始）。
   const [inProgress, setInProgress] = useState<string | null>(null);
   // 刷新前没做完的练习：接着做。
@@ -661,7 +663,8 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
                 {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
                   <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
                 )}
-                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onRetry={() => { const prev = conversationWithMaterials.slice(0, index).reverse().find((item) => item.kind === "qa" && item.answer.role === "user"); if (prev && prev.kind === "qa") void qa.send(prev.answer.text); }} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onRetry={() => { const prev = conversationWithMaterials.slice(0, index).reverse().find((item) => item.kind === "qa" && item.answer.role === "user"); if (prev && prev.kind === "qa") void qa.send(prev.answer.text); }} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setAcceptedIndex(index); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                {justAccepted && index === acceptedIndex && planOpening}
               </Fragment>
             ) : (
               <Fragment key={entry.turn.id}>
@@ -672,7 +675,7 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
               </Fragment>
             ))}
             {qa.lectureError && <p role="alert">{qa.lectureError}</p>}
-            {justAccepted && planOpening}
+            {justAccepted && (acceptedIndex === null || acceptedIndex >= conversationWithMaterials.length || conversationWithMaterials[acceptedIndex]?.kind !== "qa") && planOpening}
             <div className="activity" ref={activityRef}>
             {resumeQuiz && (
               <section aria-label="接着做练习" data-focus="resume">
