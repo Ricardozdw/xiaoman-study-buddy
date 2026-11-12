@@ -18,7 +18,7 @@ from app.study.practice.schemas import CheckedQuiz, GeneratedQuestion, Generated
 from app.tools.prompt_data import UNTRUSTED_DATA_RULE
 
 VERSION = "v1"
-PROMPT_VERSIONS = {"practice.generate": "v2", "practice.check": "v1", "practice.rephrase": "v3"}
+PROMPT_VERSIONS = {"practice.generate": "v3", "practice.check": "v1", "practice.rephrase": "v3"}
 
 
 class PracticeError(ValueError):
@@ -134,6 +134,10 @@ def generate(user_id: str, lecture_id: str, pages: list[dict], count: int, diffi
                "exclude_stems": exclude_stems or []}
     if original:
         payload["original"] = original
+    else:
+        # 没交资料时，这一讲的“资料”是小满写的通用知识（确认大纲时系统写入的那一页）；告诉模型别把它说成用户的资料。
+        general = all(str(p.get("file_id", "")).startswith("v2-outline-") for p in pages)
+        payload["source_kind"] = "通用知识" if general else "用户资料"
     name = "practice.rephrase" if original else "practice.generate"
     generated = _call(user_id, name, payload, GeneratedQuiz)
     page_map = {p["page"]: compact(p["text"]) for p in pages}

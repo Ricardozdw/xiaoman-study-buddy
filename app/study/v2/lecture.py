@@ -13,7 +13,7 @@ from app.gateway.llm_gateway import chat_json, has_llm
 from app.prompts import load_prompt
 from app.study.common.bad_cases import write_bad_case
 from app.study.common.db import ensure_schema
-from app.study.common.models import LlmCall
+from app.study.common.models import LlmCall, MaterialPage
 from app.study.v2.models import GoalOutline, UnitLecture
 from app.tools.prompt_data import UNTRUSTED_DATA_RULE
 
@@ -72,6 +72,32 @@ def _cached(user_id: str, outline_id: str, unit_no: int):
         return None
 
 
+def material_text(title: str, sections: list[dict]) -> str:
+    """把一讲讲解排成一页正文，作为没交资料时问答和出题的依据。"""
+    parts = [title.strip()]
+    for section in sections:
+        parts.append(section["heading"].strip())
+        parts.append(section["content"].strip())
+        if (section.get("example") or "").strip():
+            parts.append("例：" + section["example"].strip())
+    return "\n".join(part for part in parts if part)
+
+
+def _sync_material(user_id: str, outline_id: str, unit_no: int, title: str, sections: list[dict]) -> None:
+    """没交资料时，这一讲的“通用知识资料”原本只有标题和几行要点；讲解生成后换成讲解正文。
+
+    只改确认大纲时系统自己写的那一页（id 固定），用户上传的资料不动。
+    """
+    with SessionLocal() as session:
+        page = session.get(MaterialPage, f"v2-outline-{outline_id}-page-{unit_no}")
+        if page is None or page.user_id != user_id:
+            return
+        text = material_text(title, sections)
+        if page.text != text:
+            page.text = text
+            session.commit()
+
+
 def _is_fallback(out) -> bool:
     """模型网关在失败时会把 fallback 原样返回并打标；这类结果不能当成讲解。"""
     return not isinstance(out, dict) or out.get("_mode") in ("mock", "mock_fallback") or bool(out.get("_parse")) or bool(out.get("_model_error"))
@@ -85,6 +111,8 @@ def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
         raise ValueError("单元不存在")
     hit = _cached(user_id, outline_id, unit_no)
     if hit is not None:
+        # 以前学过的讲次：补上这一页，之后的练习和问答也基于讲解。
+        _sync_material(user_id, outline_id, unit_no, hit["title"], hit["sections"])
         return hit, False
 
     system = load_prompt(PROMPT_NAME, PROMPT_VERSION, untrusted_data_rule=UNTRUSTED_DATA_RULE)
@@ -140,5 +168,6 @@ def generate(user_id: str, outline_id: str, unit_no: int, goal: dict):
                                 title=lecture["title"],
                                 sections_json=json.dumps(lecture["sections"], ensure_ascii=False)))
         session.commit()
+    _sync_material(user_id, outline_id, unit_no, lecture["title"], lecture["sections"])
 
     return {"title": lecture["title"], "sections": lecture["sections"], "label": LABEL}, offline or last.get("_mode") == "mock"

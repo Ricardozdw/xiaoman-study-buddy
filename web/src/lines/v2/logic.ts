@@ -315,6 +315,11 @@ export function currentUnitNo(tasks: LearnTask[]): number | null {
   return task?.ref?.lecture_no ?? null;
 }
 
+/** 计划里正在学的那一讲对应的资料编号（AI 大纲确认时每讲都写了一页资料，编号是 lec-N）；没有这类计划时返回空，交给后端按原规则选。 */
+export function planLectureIdFor(unitNo: number | null): string {
+  return unitNo ? `lec-${unitNo}` : "";
+}
+
 /** 块4：确认大纲后、第 1 讲还没学完时，明确告诉用户下一步。 */
 export function firstLectureStep(outline: UnitTitles | null, tasks: LearnTask[]): { unitNo: number; taskId: string; text: string } | null {
   if (!outline || !outline.units.length) return null;

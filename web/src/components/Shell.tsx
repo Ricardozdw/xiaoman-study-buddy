@@ -21,7 +21,7 @@ import { advanceProgress, getCurrentOutline, getMistakes, getStatus, getTodaySum
 import { ExamCard } from "../lines/v2/ExamCard";
 import { DaySummaryCard } from "../lines/v2/DaySummaryCard";
 import { MistakeBookCard } from "../lines/v2/MistakeBookCard";
-import { currentUnitNo, firstLectureStep } from "../lines/v2/logic";
+import { currentUnitNo, firstLectureStep, planLectureIdFor } from "../lines/v2/logic";
 import { PathEntry, PathPanel } from "../lines/v2/PathPanel";
 import { attentionItems, headline, type AttnItem, type AttnTask } from "../lines/v2/attention";
 import { GOAL_DONE_RAIL, NEXT_GOAL_HINT } from "../lines/v2/cards";
@@ -76,7 +76,10 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
   ];
   function markUpload() { setUploadAfter({ qa: qa.messages.length, dashboard: dashboardTurns.length }); }
   useEffect(() => () => dashboardRequest.current?.abort(), []);
-  const workspace = useMaterialsWorkspace(lectureId, qa.currentLectureId, qa.sessionReady, setLectureId);
+  // “当前学习”默认跟着今天的计划走（学到第 N 讲就是第 N 讲）；用户用 @ 选过讲次的，以用户选的为准。
+  const planLectureId = planLectureIdFor(currentUnitNo(plan.tasks));
+  const askLectureId = lectureId || planLectureId || undefined;
+  const workspace = useMaterialsWorkspace(lectureId, planLectureId || qa.currentLectureId, qa.sessionReady, setLectureId);
   const effectiveLectureId = workspace.lectureId;
   const materialsReady = qa.sessionReady && Boolean(effectiveLectureId);
   const availableLectures = workspace.lectures || qa.lectures;
@@ -322,7 +325,7 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
     if (!text || busy || dashboardRequest.current || !qa.sessionReady) return;
     setDraft("");
     if (!isDashboardRequest(text)) {
-      await qa.send(text);
+      await qa.send(text, askLectureId);
       return;
     }
     const id = crypto.randomUUID();
@@ -377,7 +380,7 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
     setInProgress(task.id);
     if (task.kind === "learn" && task.ref?.source === "lecture") setActiveLecture({ unitNo: task.ref.lecture_no!, taskId: task.id });
     else if (task.kind === "learn" && task.ref?.lecture_id) { setPinnedUpload(task.ref.lecture_id); materials.current?.chooseFile(); }
-    else if (task.kind === "practice" && task.ref?.lecture_no) void qa.send(`出几道第 ${task.ref.lecture_no} 讲的练习题`);
+    else if (task.kind === "practice" && task.ref?.lecture_no) void qa.send(`出几道第 ${task.ref.lecture_no} 讲的练习题`, task.ref.lecture_id || `lec-${task.ref.lecture_no}`);
     else if (task.kind === "exam") setActiveExam(true);
   }
 
@@ -494,7 +497,12 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
                   <button type="button" className={`task-card ${state}`} aria-pressed={done}
                     disabled={startable && !qa.sessionReady}
                     aria-label={startable ? `开始：${task.title}` : undefined}
-                    onClick={() => (startable ? startTask(task) : void toggleTask(task.id, task.status))}>
+                    onClick={() => {
+                      if (startable) startTask(task);
+                      // 已完成的不撤销：学过的讲解可以回看，其余点了没有变化。
+                      else if (done) { if (task.kind === "learn" && task.ref?.source === "lecture" && task.ref.lecture_no) { setRail(false); setReviewLecture(task.ref.lecture_no); } }
+                      else void toggleTask(task.id, task.status);
+                    }}>
                     <TaskArt kind={task.kind} />
                     <span className="task-copy">
                       <span className="kind">{task.kind_label}</span>
@@ -663,7 +671,7 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
                 {answerUsesOutlineSource({ references: entry.answer.references, handoffIntent: entry.answer.handoff?.intent, lectureId: qa.currentLectureId || effectiveLectureId }, availableLectures) && (
                   <p className="v2-source"><Badge>{OUTLINE_BADGE}</Badge></p>
                 )}
-                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text)} onRetry={() => { const prev = conversationWithMaterials.slice(0, index).reverse().find((item) => item.kind === "qa" && item.answer.role === "user"); if (prev && prev.kind === "qa") void qa.send(prev.answer.text); }} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setAcceptedIndex(index); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
+                <QaAnswer answer={entry.answer} active={index === conversationWithMaterials.length - 1 || (index === conversationWithMaterials.length - 2 && conversationWithMaterials.at(-1)?.kind === "materials")} onPlanChange={setPlan} onQuickReply={(text) => void qa.send(text, askLectureId)} onRetry={() => { const prev = conversationWithMaterials.slice(0, index).reverse().find((item) => item.kind === "qa" && item.answer.role === "user"); if (prev && prev.kind === "qa") void qa.send(prev.answer.text); }} onNextTask={() => void startNext()} onGoalAccepted={() => { setDoneNote(""); setAcceptedIndex(index); setJustAccepted(true); void refreshStudy(); }} onReference={(reference) => { workspace.clearOriginal(); setSourceReference(reference); setTab("page"); }} />
                 {justAccepted && index === acceptedIndex && planOpening}
               </Fragment>
             ) : (
@@ -705,7 +713,7 @@ export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
               }} /></div>
             )}
             {showMistakes && <div data-focus="mistakes"><MistakeBookCard onClose={() => { setShowMistakes(false); setMistakeTick((n) => n + 1); }} onChanged={() => setMistakeTick((n) => n + 1)} /></div>}
-            {activeExam && <div data-focus="exam"><ExamCard onDone={() => { setActiveExam(false); setDoneNote(""); setMistakeTick((n) => n + 1); void refreshStudy(); }} /></div>}
+            {activeExam && <div data-focus="exam"><ExamCard onSubmitted={() => { setInProgress(null); setMistakeTick((n) => n + 1); void refreshStudy(); }} onDone={() => { setActiveExam(false); setDoneNote(""); setMistakeTick((n) => n + 1); void refreshStudy(); }} /></div>}
             {activeLecture && (
               <div data-focus="lecture"><LectureCard unitNo={activeLecture.unitNo} onDone={() => void finishLecture(activeLecture.taskId, activeLecture.unitNo)} /></div>
             )}

@@ -6,7 +6,7 @@ import { stepIndex, submitGuard } from "./cards";
 import { ReportCard } from "./ReportCard";
 
 /** 块3：今天的考试（第 3 件）。阶段当天就是阶段测验，交卷只勾考试这一件。 */
-export function ExamCard({ onDone }: { onDone: () => void }) {
+export function ExamCard({ onDone, onSubmitted }: { onDone: () => void; onSubmitted?: () => void }) {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [kind, setKind] = useState<"daily" | "stage">("daily");
   const [mistakes, setMistakes] = useState(0);
@@ -67,6 +67,8 @@ export function ExamCard({ onDone }: { onDone: () => void }) {
     }
     setWarn("");
     setCanForce(false);
+    // 交卷成功就让外面刷新今天的安排，不用等用户点“好的”。
+    onSubmitted?.();
   }
 
   if (stageReport) return <ReportCard report={stageReport} label={quiz?.label || ""} onOk={onDone} />;

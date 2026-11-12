@@ -298,3 +298,16 @@ describe("V2.2 学习路径图", () => {
     expect(pathNodes(outline, 2)[1]).toMatchObject({ state: "today", learned: true }); // 今天学完了仍高亮、可回看
   });
 });
+
+describe("planLectureIdFor", () => {
+  it("学到第 N 讲就用 lec-N；没有计划时为空", async () => {
+    const { planLectureIdFor, currentUnitNo } = await import("./logic");
+    expect(planLectureIdFor(2)).toBe("lec-2");
+    expect(planLectureIdFor(null)).toBe("");
+    const tasks = [
+      { kind: "learn", status: "done", ref: { source: "lecture", lecture_no: 2 } },
+      { kind: "practice", status: "todo", ref: { lecture_no: 2 } },
+    ];
+    expect(planLectureIdFor(currentUnitNo(tasks as never))).toBe("lec-2");
+  });
+});
