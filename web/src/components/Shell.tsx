@@ -14,6 +14,7 @@ import { PracticeLine } from "../lines/practice/Placeholder";
 import { LecturePicker, QaAnswer, QaHandoff, QaSourcePanel, openQuizId, useQaConversation, type Reference } from "../lines/qa";
 import type { Handoff } from "../lines/qa/types";
 import { Avatar } from "./Avatar";
+import { logout } from "./InviteGate";
 import { collapseCard, reopenCard, type StudyCard } from "./cards/logic";
 import { StudyCardView } from "./cards/StudyCardView";
 import { advanceProgress, getCurrentOutline, getMistakes, getStatus, getTodaySummary, type OutlineView } from "../lines/v2/api";
@@ -44,7 +45,7 @@ const INTENSITY: { id: Intensity; label: string }[] = [
 // 开发模式（地址加 ?dev=1）：显示“五条线的位置”面板和演示日期开关，正式页面不显示。
 const DEV = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev");
 
-export function Shell() {
+export function Shell({ canLogout = false }: { canLogout?: boolean } = {}) {
   const [source, setSource] = useState<"loading" | "api" | "mock">("loading");
   const [plan, setPlan] = useState<PlanToday>(mockPlan);
   const [, setBoard] = useState<Dashboard>(mockDashboard);
@@ -581,7 +582,10 @@ export function Shell() {
                     </div>
                   </>
                 )}
-                <Button onClick={() => setSettings(false)}>好</Button>
+                <div className="settings-actions">
+                  {canLogout && <Button onClick={() => void logout()}>退出登录</Button>}
+                  <Button onClick={() => setSettings(false)}>好</Button>
+                </div>
               </div>
             )}
             <IconButton className={mistakeCount ? "tools-btn has-dot" : "tools-btn"} icon="grid" label="更多" aria-expanded={tools} onClick={() => { setSettings(false); setTools((open) => !open); }} />

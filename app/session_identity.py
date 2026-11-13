@@ -36,6 +36,8 @@ EXEMPT_EXACT = {
     "/api/health",
     "/api/capabilities",
     "/api/session",
+    "/api/session/invite",
+    "/api/session/logout",
     "/api/channels",
     "/api/channels/auto-bind",
     "/api/channels/bind",
@@ -67,7 +69,12 @@ def session_user(request: Request) -> Optional[str]:
     tok = token_from_scope(
         {k.lower(): v for k, v in request.headers.items()}, dict(request.cookies)
     )
-    return verify_user_token(tok) if tok else None
+    uid = verify_user_token(tok) if tok else None
+    # 开了邀请码：只认邀请码账号，以前的匿名会话一律当作没登录。
+    from app.invite import invite_required, is_invite_user
+    if uid and invite_required() and not is_invite_user(uid):
+        return None
+    return uid
 
 
 def new_anonymous_user_id() -> str:
