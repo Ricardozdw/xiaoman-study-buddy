@@ -6,7 +6,7 @@
 
 - 线上版本：https://xiaoman-api-341891-6-1317663597.sh.run.tcloudbase.com/study/
   首次打开需要等待约 1 分钟（服务空闲时会休眠，期间可能显示 503，刷新即可）。登录需要邀请码，可通过 Issue 联系获取。
-- 可点击 demo（数据为预设，无需登录）：https://ricardozdw.github.io/xiaoman-study-buddy-demo/
+- 可点击 demo（数据为预设，无需登录）：https://ricardozdw.github.io/xiaoman-study-buddy/demo/
 
 ## 解决什么问题
 
